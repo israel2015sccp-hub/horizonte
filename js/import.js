@@ -108,7 +108,9 @@
         if (ids.has(id)) dup = 'já importado';
         else if (existing.some(e => e.amount === Math.abs(amount) && (e.direction === 'in') === (amount > 0) && e.direction !== 'credit' && days(e.date, r.date) <= 3)) dup = 'parece já lançado';
       } else if (/pagamento|payment/i.test(r.description)) dup = 'pagamento da fatura';
-      return { ...r, amount, id, dup, on: !dup, inst: dup === 'já importado' ? null : matchInst(r) };
+      const inst = dup === 'já importado' ? null : matchInst(r);
+      /* gasto do dia a dia: o app sugere a caixinha (dá para trocar antes de importar) */
+      return { ...r, amount, id, dup, on: !dup, inst, cat: kind === 'account' && amount < 0 && !inst ? H.guessBudget(f, r.description) : null };
     }).sort((a, b) => b.date.localeCompare(a.date));
     const known = kind === 'account' && parsed.acct ? f.accounts.find(a => a.keys.includes(parsed.acct)) : null;
     S = { kind, name, rows, acct: parsed.acct || '', org: parsed.org || '', account: known ? known.id : null, auto: !!known };
@@ -153,7 +155,9 @@
       '<div class="note">' + icon('alert') + '<p><b>Extrato da conta</b> lança entradas e saídas no saldo. <b>Fatura do cartão</b> preenche o valor da fatura do mês.</p></div>' + accounts;
     const on = S.rows.filter(r => r.on);
     if (!S.rows.length) return html + '<section class="card">' + App.empty('Não encontrei lançamentos em "' + S.name + '". Confira se o arquivo é OFX ou CSV.', '<button class="btn" data-a="importCancel">Escolher outro arquivo</button>') + '</section>';
-    const list = '<div class="list">' + S.rows.map((r, i) => '<button class="row bill' + (r.on ? ' is-on' : '') + '" data-a="importToggle" data-i="' + i + '" aria-pressed="' + r.on + '"><span class="check">' + (r.on ? icon('check') : '') + '</span><span class="row-main"><b>' + esc(r.description) + '</b><small>' + H.shortDate(r.date) + (r.dup ? ' · ' + r.dup : '') + '</small>' + (r.inst ? '<small class="pos">marca paga: ' + esc(r.inst.label) + '</small>' : '') + '</span><span class="row-amt' + (S.kind === 'account' && r.amount > 0 ? ' pos' : '') + '">' + (S.kind === 'account' ? (r.amount > 0 ? '+ ' : '− ') : (r.amount < 0 ? '− ' : '')) + m(Math.abs(r.amount)) + '</span></button>').join('') + '</div>';
+    const env = H.envelopes(F()), envName = id => (env.find(b => b.id === id) || {}).name;
+    const list = '<div class="list">' + S.rows.map((r, i) => '<div class="row bill imp' + (r.on ? ' is-on' : '') + '"><button class="imp-main" data-a="importToggle" data-i="' + i + '" aria-pressed="' + r.on + '"><span class="check">' + (r.on ? icon('check') : '') + '</span><span class="row-main"><b>' + esc(r.description) + '</b><small>' + H.shortDate(r.date) + (r.dup ? ' · ' + r.dup : '') + '</small>' + (r.inst ? '<small class="pos">marca paga: ' + esc(r.inst.label) + '</small>' : '') + '</span><span class="row-amt' + (S.kind === 'account' && r.amount > 0 ? ' pos' : '') + '">' + (S.kind === 'account' ? (r.amount > 0 ? '+ ' : '− ') : (r.amount < 0 ? '− ' : '')) + m(Math.abs(r.amount)) + '</span></button>' +
+      (S.kind === 'account' && r.amount < 0 && !r.inst && env.length && r.on ? '<button class="imp-cat' + (envName(r.cat) ? ' has' : '') + '" data-a="importCat" data-i="' + i + '">' + (envName(r.cat) ? 'Caixinha: <b>' + esc(envName(r.cat)) + '</b> · trocar' : 'Sem caixinha · escolher') + '</button>' : '') + '</div>').join('') + '</div>';
     if (S.kind === 'account') {
       const ins = H.sum(on.filter(r => r.amount > 0), r => r.amount), outs = H.sum(on.filter(r => r.amount < 0), r => -r.amount);
       html += '<section class="hero slim"><small>' + esc(S.name) + '</small><strong class="big">' + on.length + ' de ' + S.rows.length + ' lançamentos</strong><div class="hero-grid"><div><small>Entradas</small><b class="pos">' + m(ins) + '</b></div><div><small>Saídas</small><b>' + m(outs) + '</b></div></div></section>' +
@@ -183,6 +187,17 @@
     input.click();
   };
   A.importToggle = ({ i }) => { S.rows[i].on = !S.rows[i].on; App.render(); };
+  A.importCat = ({ i }) => {
+    const r = S.rows[i], env = H.envelopes(F());
+    UI.form({ title: 'Caixinha deste gasto', intro: r.description + ' · ' + m(-r.amount), submit: 'Escolher',
+      fields: [{ name: 'cat', label: 'Caixinha', type: 'select', value: env.some(b => b.id === r.cat) ? r.cat : '', options: [['', 'Nenhuma (saída avulsa)'], ...env.map(b => [b.id, b.name])] },
+        { name: 'all', label: 'Aplicar em', type: 'select', value: '1', options: [['1', 'Todos deste mesmo lugar'], ['0', 'Só este']] }],
+      onSubmit: v => {
+        const key = H.merchantKey(r.description);
+        S.rows.forEach(x => { if (x === r || (v.all === '1' && key && x.amount < 0 && !x.inst && H.merchantKey(x.description) === key)) x.cat = v.cat || null; });
+        setTimeout(App.render, 0);
+      } });
+  };
   A.importCancel = () => { S = null; App.render(); };
   A.importApply = () => {
     const on = S.rows.filter(r => r.on);
@@ -191,11 +206,13 @@
       if (!S.account || !F().accounts.some(a => a.id === S.account)) return chooseAccount(() => A.importApply());
       const account = S.account, key = S.acct;
       App.act(on.length + ' lançamentos importados', f => {
-        const have = new Set([...f.receipts, ...f.outflows].map(r => r.id)), acc = f.accounts.find(a => a.id === account);
+        const have = new Set([...f.receipts, ...f.outflows, ...f.expenses].map(r => r.id)), acc = f.accounts.find(a => a.id === account);
         if (key && !acc.keys.includes(key)) acc.keys.push(key);
         for (const r of on) {
           if (have.has(r.id)) continue;
-          if (r.amount > 0) f.receipts.push({ id: r.id, date: r.date, amount: r.amount, description: r.description, owner: 2, kind: 'other', account });
+          const b = r.cat && !r.inst && r.amount < 0 ? H.envelopes(f).find(b => b.id === r.cat) : null;
+          if (b) f.expenses.push({ id: r.id, budgetId: b.id, date: r.date, amount: -r.amount, description: r.description, period: H.expensePeriod(b, r.date), method: 'cash' });
+          else if (r.amount > 0) f.receipts.push({ id: r.id, date: r.date, amount: r.amount, description: r.description, owner: 2, kind: 'other', account });
           else f.outflows.push({ id: r.id, date: r.date, amount: -r.amount, description: r.description, account });
         }
         for (const r of on) {

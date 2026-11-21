@@ -127,6 +127,42 @@
     return pct >= 30 ? { name: H.cardName(b), amount: now, avg, pct } : null;
   }).filter(Boolean);
 
+  /* ---------- categoria automática: em qual caixinha um gasto cai ---------- */
+  const plain = s => ' ' + String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+  const NOISE = new Set('compra compras debito credito pix enviado enviada recebido transferencia pagamento pagto pag cartao no na de do da em via para loja ltda sa me eireli'.split(' '));
+  /* "nome" do lugar: as duas primeiras palavras úteis da descrição */
+  H.merchantKey = d => plain(d).split(' ').filter(w => w.length > 1 && !/^\d+$/.test(w) && !NOISE.has(w)).slice(0, 2).join(' ');
+  /* [nomes de caixinha que servem, palavras que aparecem na descrição do gasto] */
+  const GROUPS = [
+    [['mercado', 'supermercado', 'feira', 'compras do mes'], [' mercado ', 'supermerc', 'atacad', ' assai ', 'carrefour', 'hortifruti', 'sacolao', 'acougue', 'padaria', 'pao de acucar', 'mercearia', 'emporio', ' feira ']],
+    [['restaurante', 'ifood', 'delivery', 'lanche', 'comer fora', 'alimentacao', 'comida'], ['ifood', 'restaurante', 'lanch', 'pizza', 'burger', 'mcdonald', 'mc donald', 'rappi', ' cafe', 'churrasc', 'sushi', 'pastel', 'sorvet', 'acai']],
+    [['transporte', 'combustivel', 'gasolina', 'carro', 'uber', 'moto'], [' uber', ' 99 ', '99app', '99 pop', ' posto ', 'combust', 'gasolina', 'estacion', 'pedagio', 'sem parar', ' shell ', 'ipiranga', 'metro ', 'onibus', 'bilhete unico']],
+    [['farmacia', 'saude', 'remedio'], ['farmac', 'drogaria', 'drogasil', 'droga raia', 'pague menos', 'clinica', 'laborat', 'hospital', 'dentista', 'odonto']],
+    [['lazer', 'diversao', 'passeio', 'assinatura'], ['cinema', 'netflix', 'spotify', 'ingresso', 'steam', 'disney', 'prime video', 'youtube', 'hbo', 'playstation', 'xbox', ' bar ']],
+    [['pet', 'cachorro', 'gato'], [' pet', 'veterin', 'racao', 'petz', 'cobasi']],
+    [['beleza', 'cabelo', 'salao', 'barbearia'], ['barbearia', 'salao', 'cabeleireir', 'manicure', 'boticario', 'estetica']]
+  ];
+  H.envelopes = f => f.budgets.filter(b => b.type === 'envelope' && b.active);
+  H.expensePeriod = (b, date) => b.frequency === 'weekly' ? 'w:' + H.weekStart(date) : 'm:' + date.slice(0, 7);
+  /* 1º o que você já lançou antes no mesmo lugar; 2º o nome da caixinha na descrição; 3º palavras conhecidas */
+  H.guessBudget = (f, description) => {
+    const env = H.envelopes(f);
+    if (!env.length) return null;
+    const key = H.merchantKey(description), text = plain(description).replace(/ mercado (pago|livre) /g, ' ').replace(/ (mercadopago|mercadolivre) /g, ' ');
+    if (key) {
+      const past = f.expenses.filter(e => e.description && env.some(b => b.id === e.budgetId) && H.merchantKey(e.description) === key).sort((a, b) => b.date.localeCompare(a.date))[0];
+      if (past) return past.budgetId;
+    }
+    const named = env.find(b => { const n = plain(b.name).trim(); return n.length >= 4 && text.includes(' ' + n + ' '); });
+    if (named) return named.id;
+    for (const [names, words] of GROUPS) {
+      if (!words.some(w => text.includes(w))) continue;
+      const b = env.find(b => { const n = plain(b.name); return names.some(a => n.includes(' ' + a)); });
+      if (b) return b.id;
+    }
+    return null;
+  };
+
   /* ---------- contas, caixinhas e cartões ---------- */
   H.canonicalBank = name => String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '').replace(/^fatura/, '').replace(/^cartao/, '').replace(/^credito/, '');
   H.cardMatches = (p, b) => H.canonicalBank(p.bank) === H.canonicalBank(b.name);

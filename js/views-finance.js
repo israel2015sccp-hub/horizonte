@@ -288,8 +288,17 @@
       { name: 'description', label: 'Descrição', value: 'Salário', required: true, max: 300 }, { name: 'owner', label: 'De quem', type: 'select', value: 2, options: [[0, f.names[0]], [1, f.names[1]], [2, 'Casal']], required: true }, { name: 'kind', label: 'Tipo', type: 'select', value: 'salary', options: [['salary', 'Salário'], ['other', 'Outra entrada']], required: true }],
       onSubmit: v => { if (!v.amount) return 'Informe o valor.'; act('Entrada lançada', f => { f.receipts.push({ id: H.id(), date: v.date, amount: v.amount, description: v.description, owner: Number(v.owner), kind: v.kind }); }); } });
   };
-  A.addOutflow = () => UI.form({ title: 'Nova saída avulsa', intro: 'Para gastos fora das contas, faturas e caixinhas.', fields: [{ name: 'amount', label: 'Valor', type: 'money', required: true }, { name: 'date', label: 'Data', type: 'date', value: H.today(), required: true }, { name: 'description', label: 'Descrição', value: '', required: true, max: 300 }],
-    onSubmit: v => { if (!v.amount) return 'Informe o valor.'; act('Saída lançada', f => { f.outflows.push({ id: H.id(), date: v.date, amount: v.amount, description: v.description }); }); } });
+  A.addOutflow = () => {
+    const env = H.envelopes(F());
+    UI.form({ title: 'Nova saída', intro: env.length ? 'Pela descrição, o app escolhe a caixinha sozinho. Dá para desfazer.' : 'Para gastos fora das contas, faturas e caixinhas.', fields: [{ name: 'amount', label: 'Valor', type: 'money', required: true }, { name: 'date', label: 'Data', type: 'date', value: H.today(), required: true }, { name: 'description', label: 'Descrição', value: '', required: true, max: 300, hint: env.length ? 'Ex.: Supermercado, Uber, Farmácia' : '' }]
+        .concat(env.length ? [{ name: 'cat', label: 'Caixinha', type: 'select', value: 'auto', options: [['auto', 'Escolher sozinho'], ['', 'Nenhuma (saída avulsa)'], ...env.map(b => [b.id, b.name])] }] : []),
+      onSubmit: v => {
+        if (!v.amount) return 'Informe o valor.';
+        const id = v.cat === 'auto' ? H.guessBudget(F(), v.description) : v.cat, b = id && env.find(b => b.id === id);
+        if (b) act('Lançado em ' + b.name, f => { f.expenses.push({ id: H.id(), budgetId: b.id, date: v.date, amount: v.amount, description: v.description, period: H.expensePeriod(b, v.date), method: 'cash' }); });
+        else act('Saída lançada', f => { f.outflows.push({ id: H.id(), date: v.date, amount: v.amount, description: v.description }); });
+      } });
+  };
   A.setBalance = () => UI.form({ title: 'Ajustar saldo', intro: 'Informe quanto tem em conta hoje. O app passa a contar a partir deste valor; lançamentos anteriores a hoje deixam de entrar na conta.',
     fields: [{ name: 'amount', label: 'Saldo em conta hoje', type: 'money', value: H.state.finance.cashOpening ? H.cashSummary(F(), H.currentMonth()).balance : null, required: true }],
     onSubmit: v => act('Saldo ajustado', f => {

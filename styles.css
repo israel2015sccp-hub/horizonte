@@ -110,7 +110,12 @@ body.no-data .tabs, body.no-data .side { display: none; }
 .check .ic { width: 16px; height: 16px; stroke-width: 3; }
 
 .is-on .check { background: var(--brand); border-color: var(--brand); }
-.row.bill:not(.is-on)[data-a=importToggle] .row-main b { color: var(--muted); }
+.row.imp:not(.is-on) .row-main b { color: var(--muted); }
+.row.imp { flex-wrap: wrap; row-gap: 6px; }
+.imp-main { display: flex; align-items: center; gap: 12px; flex: 1 1 100%; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.imp-cat { margin-left: 38px; padding: 5px 10px; border-radius: 999px; border: 1px dashed var(--line); background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+.imp-cat.has { border-style: solid; color: var(--text); }
+.imp-cat b { color: var(--brand); }
 .btn[disabled] { opacity: .45; pointer-events: none; }
 .btn-row.sticky { position: sticky; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 10px); background: var(--bg); padding: 8px 0; }
 .is-paid .check { background: var(--brand); border-color: var(--brand); }
