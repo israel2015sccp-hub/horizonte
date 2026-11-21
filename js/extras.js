@@ -37,17 +37,16 @@
   const hit = (a, sub, amt, extra) => '<' + (extra.startsWith('href') ? 'a' : 'button') + ' class="row link" ' + extra + '><span class="row-main"><b>' + esc(a) + '</b><small>' + esc(sub) + '</small></span><span class="row-amt">' + amt + '</span></' + (extra.startsWith('href') ? 'a' : 'button') + '>';
   const results = () => {
     const q = norm(query.trim());
-    if (q.length < 2) return '<p class="muted pad">Digite pelo menos 2 letras: nome de uma compra, conta, cartão, caixinha ou objetivo.</p>';
+    if (q.length < 2) return '<p class="muted pad">Digite pelo menos 2 letras: nome de uma compra, conta, cartão ou caixinha.</p>';
     const f = F(), out = [], ok = (...t) => t.some(x => norm(x).includes(q));
     for (const p of f.purchases) if (ok(p.name, p.bank)) out.push(hit(p.name, 'Dívida · ' + p.paid.length + ' de ' + p.total + ' pagas' + (p.bank ? ' · ' + p.bank : ''), m(H.remaining(p)), 'data-a="debt" data-id="' + esc(p.id) + '"'));
     for (const b of f.budgets) if (b.active && ok(b.name)) out.push(hit(b.name, b.type === 'card' ? 'Cartão' : b.type === 'fixed' ? 'Conta fixa' : 'Caixinha de gasto', b.amount === null ? '' : m(b.amount), 'href="#/' + (b.type === 'card' ? 'cartoes' : 'casa') + '"'));
     for (const s of f.savings) if (ok(s.name, s.place)) out.push(hit(s.name, 'Guardado' + (s.place ? ' · ' + s.place : ''), m(s.amount), 'data-a="editSaved" data-id="' + esc(s.id) + '"'));
-    for (const g of H.state.horizon.goals) if (ok(g.title, g.summary)) out.push(hit(g.title, 'Objetivo', '', 'href="#/objetivo/' + encodeURIComponent(g.id) + '"'));
     const rows = H.cashRows(f).filter(r => ok(r.description, r.who)).slice(0, 40);
     for (const r of rows) out.push(hit(r.description || r.who, H.shortDate(r.date) + ' · ' + r.who, (r.direction === 'in' ? '+ ' : '− ') + m(r.amount), 'href="#/caixa"'));
     return out.length ? '<div class="list">' + out.join('') + '</div>' : '<p class="muted pad">Nada encontrado para "' + esc(query.trim()) + '".</p>';
   };
-  V.buscar = () => App.head('Buscar', 'Compras, contas, cartões, caixinhas e objetivos', '', '#/inicio') +
+  V.buscar = () => App.head('Buscar', 'Compras, contas, cartões e caixinhas', '', '#/inicio') +
     '<section class="card"><label class="field" for="q"><input id="q" type="search" autocomplete="off" placeholder="O que você procura?" value="' + esc(query) + '"></label><div id="q-out">' + results() + '</div></section>';
   document.addEventListener('input', e => { if (e.target.id !== 'q') return; query = e.target.value; const out = document.getElementById('q-out'); if (out) out.innerHTML = results(); });
 

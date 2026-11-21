@@ -3,9 +3,9 @@
   'use strict';
   const { esc, icon } = UI;
   const App = window.App = { views: {}, actions: {}, month: null, route: '', param: '' };
-  const NAV = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['cartoes', 'Cartões', 'card'], ['dividas', 'Dívidas', 'wallet'], ['casa', 'Casa', 'basket'], ['guardado', 'Guardado', 'piggy'], ['caixa', 'Entradas e saídas', 'swap'], ['objetivos', 'Objetivos', 'target'], ['importar', 'Importar extrato', 'upload'], ['buscar', 'Buscar', 'search'], ['ajustes', 'Ajustes', 'settings']];
+  const NAV = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['cartoes', 'Cartões', 'card'], ['dividas', 'Dívidas', 'wallet'], ['casa', 'Casa', 'basket'], ['guardado', 'Guardado', 'piggy'], ['caixa', 'Entradas e saídas', 'swap'],['importar', 'Importar extrato', 'upload'], ['buscar', 'Buscar', 'search'], ['ajustes', 'Ajustes', 'settings']];
   const TABS = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['guardado', 'Guardado', 'piggy'], ['dividas', 'Dívidas', 'wallet'], ['mais', 'Mais', 'grid']];
-  const TAB_OF = { buscar: 'mais', objetivos: 'mais', importar: 'mais', cartoes: 'mais', casa: 'mais', caixa: 'mais', ajustes: 'mais', objetivo: 'mais' };
+  const TAB_OF = { buscar: 'mais', importar: 'mais', cartoes: 'mais', casa: 'mais', caixa: 'mais', ajustes: 'mais' };
   const V = App.views, A = App.actions;
 
   /* aplica uma mudança, salva e avisa (com Desfazer) */
@@ -33,7 +33,7 @@
     view.innerHTML = V[route](param);
     const tab = TAB_OF[route] || route;
     for (const a of document.querySelectorAll('[data-r]')) {
-      const on = a.closest('.tabs') ? a.dataset.r === tab : a.dataset.r === (route === 'objetivo' ? 'objetivos' : route);
+      const on = a.closest('.tabs') ? a.dataset.r === tab : a.dataset.r === route;
       a.classList.toggle('on', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     }
@@ -42,7 +42,7 @@
   };
 
   /* ---------- boas-vindas (sem dados) ---------- */
-  V.bemvindo = () => '<div class="welcome"><img src="icons/icon-192.png" alt="" width="84" height="84"><h1>Horizonte</h1><p>Seu dinheiro e seus objetivos em um só lugar. Os dados ficam guardados neste aparelho.</p>' +
+  V.bemvindo = () => '<div class="welcome"><img src="icons/icon-192.png" alt="" width="84" height="84"><h1>Horizonte</h1><p>Contas, cartões e parcelas do casal em um só lugar. Os dados ficam guardados neste aparelho.</p>' +
     '<button class="btn primary big" data-a="importBackup">' + icon('upload') + 'Importar meu backup</button>' +
     '<button class="btn ghost big" data-a="pasteBackup">Colar o texto do backup</button>' +
     '<button class="btn ghost big" data-a="startBlank">Começar do zero</button>' +
@@ -51,7 +51,6 @@
 
   /* ---------- menu "Mais" (celular) ---------- */
   const MAIS = [['Dinheiro do dia a dia', [['cartoes', 'Cartões', 'card', 'Faturas, limites e assinaturas'], ['casa', 'Casa', 'basket', 'Contas fixas e caixinhas'], ['caixa', 'Entradas e saídas', 'swap', 'Saldo em conta (opcional)']]],
-    ['Planos', [['objetivos', 'Objetivos', 'target', 'Metas do ano e próximos passos']]],
     ['Ferramentas', [['importar', 'Importar extrato', 'upload', 'Ler fatura ou extrato em PDF'], ['buscar', 'Buscar', 'search', 'Achar qualquer lançamento']]],
     ['App', [['ajustes', 'Ajustes', 'settings', 'Backup, segurança e tema']]]];
   V.mais = () => App.head('Mais') + MAIS.map(([title, items]) => '<h2 class="sec">' + title + '</h2><div class="list card">' +
@@ -103,7 +102,7 @@
     try { st = H.fromBackup(JSON.parse(String(text).trim())); }
     catch (e) { return UI.toast(e instanceof SyntaxError ? 'Isso não é um backup válido.' : (e.message || 'Não consegui ler este backup.')); }
     const apply = () => { H._undo = H.state ? JSON.stringify(H.state) : null; H.state = st; H.persist(); UI.toast('Backup importado', { undo: !!H._undo }); App.go('#/inicio'); };
-    if (H.state) UI.confirm('Substituir os dados atuais?', 'O backup tem ' + st.finance.purchases.length + ' parcelamentos e ' + st.horizon.goals.length + ' objetivos. Ele entra no lugar do que está no app agora.', 'Substituir', apply);
+    if (H.state) UI.confirm('Substituir os dados atuais?', 'O backup tem ' + st.finance.purchases.length + ' parcelamentos e ' + st.finance.budgets.length + ' contas e cartões. Ele entra no lugar do que está no app agora.', 'Substituir', apply);
     else apply();
   };
   /* sem arquivo: o backup também pode ser colado como texto (útil no iPhone) */

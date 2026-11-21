@@ -1,7 +1,7 @@
 {
   "name": "Horizonte",
   "short_name": "Horizonte",
-  "description": "Dinheiro e objetivos do casal em um só lugar.",
+  "description": "Contas, cartões e parcelas do casal em um só lugar.",
   "lang": "pt-BR",
   "start_url": "./index.html",
   "scope": "./",

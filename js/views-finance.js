@@ -48,12 +48,11 @@
 
   /* ---------- Início ---------- */
   V.inicio = () => {
-    const f = F(), hz = H.state.horizon, month = H.currentMonth(), today = H.today();
+    const f = F(), month = H.currentMonth(), today = H.today();
     const plan = H.monthPlan(f, month), income = H.monthIncome(f, month);
     const list = H.monthChecklist(f, month), open = list.filter(i => !i.paid), openSum = sum(open, i => i.amount || 0);
     const debt = H.debtSummary(f), free = H.debtFreeMonth(f);
     const late = open.filter(i => i.date && i.date < today).length;
-    const focus = hz.goals.find(g => g.id === hz.focus && g.status !== 'done'), att = H.attentions(hz);
     let html = head('Início', cap(H.WEEKDAYS[H.parseDate(today).getDay()]) + ', ' + H.dateLabel(today), App.homeButtons ? App.homeButtons() : '');
     const saved = H.savedSummary(f), bills = list.filter(i => i.kind === 'card'), billsOpen = bills.filter(i => !i.paid);
     html += '<section class="hero"><small>Guardado</small>' +
@@ -68,9 +67,7 @@
     const link = (href, ic, title, sub, amt) => '<a class="row link" href="' + href + '"><span class="row-ic">' + icon(ic) + '</span><span class="row-main"><b>' + title + '</b><small>' + sub + '</small></span><span class="row-amt">' + amt + '</span></a>';
     html += '<h2 class="sec">Resumo</h2><div class="list card">' +
       link('#/mes', 'calendar', cap(monthName(month)), 'Entra ' + m(income) + ' · sai ' + m(plan.total), '<span class="' + tone(income - plan.total) + '">' + m(income - plan.total) + '</span><small>sobra prevista</small>') +
-      link('#/dividas', 'wallet', 'Dívidas', debt.pct + '% pago · ' + debt.pending + ' parcelas restantes', (free ? cap(H.monthShort(free)) : 'Quitadas') + '<small>' + (free ? 'fim das dívidas' : 'nada a pagar') + '</small>') +
-      (focus ? link('#/objetivo/' + encodeURIComponent(focus.id), 'star', esc(focus.title), 'Foco do ano · ' + esc(H.goalHeadline(focus, f)), H.goalPercent(focus, f) + '%') : '') +
-      (att.length ? link('#/objetivos', 'clock', att.length + (att.length === 1 ? ' pendência nos objetivos' : ' pendências nos objetivos'), esc(att[0].title), '') : '') + '</div>';
+      link('#/dividas', 'wallet', 'Dívidas', debt.pct + '% pago · ' + debt.pending + ' parcelas restantes', (free ? cap(H.monthShort(free)) : 'Quitadas') + '<small>' + (free ? 'fim das dívidas' : 'nada a pagar') + '</small>') + '</div>';
     return html;
   };
 
