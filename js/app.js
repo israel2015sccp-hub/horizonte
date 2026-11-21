@@ -40,6 +40,7 @@
   /* ---------- boas-vindas (sem dados) ---------- */
   V.bemvindo = () => '<div class="welcome"><img src="icons/icon-192.png" alt="" width="84" height="84"><h1>Horizonte</h1><p>Seu dinheiro e seus objetivos em um só lugar. Os dados ficam guardados neste aparelho.</p>' +
     '<button class="btn primary big" data-a="importBackup">' + icon('upload') + 'Importar meu backup</button>' +
+    '<button class="btn ghost big" data-a="pasteBackup">Colar o texto do backup</button>' +
     '<button class="btn ghost big" data-a="startBlank">Começar do zero</button>' +
     '<small>O backup é o arquivo .json exportado pelo Horizonte antigo.</small></div>';
   A.startBlank = () => { H.state = H.blankState(); H.persist(); App.go('#/inicio'); };
@@ -54,7 +55,7 @@
     return App.head('Ajustes') +
       (H.storageOk ? '' : '<div class="note danger">' + icon('alert') + '<p>Este navegador não está deixando salvar. Exporte um backup antes de fechar.</p></div>') +
       '<section class="card"><h2>Backup</h2><p class="muted">Seus dados ficam só neste aparelho. Exporte um backup de vez em quando — é ele que leva tudo para outro aparelho.</p>' +
-      '<div class="btn-row"><button class="btn primary" data-a="exportBackup">' + icon('download') + 'Exportar backup</button><button class="btn ghost" data-a="importBackup">' + icon('upload') + 'Importar backup</button></div>' +
+      '<div class="btn-row"><button class="btn primary" data-a="exportBackup">' + icon('download') + 'Exportar backup</button><button class="btn ghost" data-a="importBackup">' + icon('upload') + 'Importar backup</button><button class="btn ghost" data-a="pasteBackup">Colar texto</button></div>' +
       (when ? '<small class="muted">Última alteração: ' + new Date(when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + '</small>' : '') + '</section>' +
       (App.settingsExtra ? App.settingsExtra() : '') +
       '<section class="card"><h2>Preferências</h2><div class="list">' +
@@ -82,15 +83,23 @@
     input.type = 'file'; input.accept = '.json,application/json';
     input.addEventListener('change', async () => {
       if (!input.files[0]) return;
-      let st;
-      try { st = H.fromBackup(JSON.parse(await input.files[0].text())); }
-      catch (e) { return UI.toast(e instanceof SyntaxError ? 'Este arquivo não é um backup válido.' : (e.message || 'Não consegui ler este arquivo.')); }
-      const apply = () => { H._undo = H.state ? JSON.stringify(H.state) : null; H.state = st; H.persist(); UI.toast('Backup importado', { undo: !!H._undo }); App.go('#/inicio'); };
-      if (H.state) UI.confirm('Substituir os dados atuais?', 'O backup tem ' + st.finance.purchases.length + ' parcelamentos e ' + st.horizon.goals.length + ' objetivos. Ele entra no lugar do que está no app agora.', 'Substituir', apply);
-      else apply();
+      App.applyBackupText(await input.files[0].text());
     });
     input.click();
   };
+  App.applyBackupText = text => {
+    let st;
+    try { st = H.fromBackup(JSON.parse(String(text).trim())); }
+    catch (e) { return UI.toast(e instanceof SyntaxError ? 'Isso não é um backup válido.' : (e.message || 'Não consegui ler este backup.')); }
+    const apply = () => { H._undo = H.state ? JSON.stringify(H.state) : null; H.state = st; H.persist(); UI.toast('Backup importado', { undo: !!H._undo }); App.go('#/inicio'); };
+    if (H.state) UI.confirm('Substituir os dados atuais?', 'O backup tem ' + st.finance.purchases.length + ' parcelamentos e ' + st.horizon.goals.length + ' objetivos. Ele entra no lugar do que está no app agora.', 'Substituir', apply);
+    else apply();
+  };
+  /* sem arquivo: o backup também pode ser colado como texto (útil no iPhone) */
+  A.pasteBackup = () => UI.form({ title: 'Colar backup', submit: 'Importar',
+    intro: 'Abra o texto do backup (por exemplo, a mensagem do WhatsApp), copie tudo e cole aqui.',
+    fields: [{ name: 't', label: 'Texto do backup', type: 'textarea', rows: 8, value: '', required: true, max: 400000 }],
+    onSubmit: v => { setTimeout(() => App.applyBackupText(v.t), 0); } });
 
   /* ---------- início ---------- */
   document.addEventListener('click', e => {
