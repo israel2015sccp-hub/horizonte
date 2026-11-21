@@ -86,7 +86,17 @@
   const days = (a, b) => Math.abs(Date.parse(a) - Date.parse(b)) / 864e5;
   const prepare = (kind, name, parsed) => {
     const f = F(), existing = H.cashRows(f), ids = new Set(existing.map(r => r.id)), seen = {};
-    const rows = parsed.rows.map(r => {
+    /* parcelas em aberto fora dos cartões (empréstimos etc.): a saída com o mesmo valor marca a parcela como paga */
+    const cards = H.activeCards(f), taken = new Set();
+    const open = kind === 'account' ? H.allEntries(f.purchases).filter(e => !e.paid && !cards.some(b => H.cardMatches(e.p, b))) : [];
+    const matchInst = r => {
+      if (r.amount >= 0) return null;
+      const e = open.find(e => e.amount === -r.amount && !taken.has(e.p.id + ':' + e.i) && days(e.date, r.date) <= 45);
+      if (!e) return null;
+      taken.add(e.p.id + ':' + e.i);
+      return { id: e.p.id, i: e.i, label: 'parcela ' + (e.i + 1) + ' de ' + e.p.total + ' · ' + e.p.name };
+    };
+    const rows = [...parsed.rows].sort((a, b) => a.date.localeCompare(b.date)).map(r => {
       /* na fatura, gasto vem positivo; no extrato, gasto vem negativo */
       const amount = kind === 'card' ? r.amount : r.amount, key = r.ref || r.date + '|' + amount + '|' + r.description;
       seen[key] = (seen[key] || 0) + 1;
@@ -96,7 +106,7 @@
         if (ids.has(id)) dup = 'já importado';
         else if (existing.some(e => e.amount === Math.abs(amount) && (e.direction === 'in') === (amount > 0) && e.direction !== 'credit' && days(e.date, r.date) <= 3)) dup = 'parece já lançado';
       } else if (/pagamento|payment/i.test(r.description)) dup = 'pagamento da fatura';
-      return { ...r, amount, id, dup, on: !dup };
+      return { ...r, amount, id, dup, on: !dup, inst: dup === 'já importado' ? null : matchInst(r) };
     }).sort((a, b) => b.date.localeCompare(a.date));
     S = { kind, name, rows };
   };
@@ -109,11 +119,11 @@
       '<div class="note">' + icon('alert') + '<p><b>Extrato da conta</b> lança entradas e saídas no saldo. <b>Fatura do cartão</b> preenche o valor da fatura do mês.</p></div>';
     const on = S.rows.filter(r => r.on);
     if (!S.rows.length) return html + '<section class="card">' + App.empty('Não encontrei lançamentos em "' + S.name + '". Confira se o arquivo é OFX ou CSV.', '<button class="btn" data-a="importCancel">Escolher outro arquivo</button>') + '</section>';
-    const list = '<div class="list">' + S.rows.map((r, i) => '<button class="row bill' + (r.on ? ' is-on' : '') + '" data-a="importToggle" data-i="' + i + '" aria-pressed="' + r.on + '"><span class="check">' + (r.on ? icon('check') : '') + '</span><span class="row-main"><b>' + esc(r.description) + '</b><small>' + H.shortDate(r.date) + (r.dup ? ' · ' + r.dup : '') + '</small></span><span class="row-amt' + (S.kind === 'account' && r.amount > 0 ? ' pos' : '') + '">' + (S.kind === 'account' ? (r.amount > 0 ? '+ ' : '− ') : (r.amount < 0 ? '− ' : '')) + m(Math.abs(r.amount)) + '</span></button>').join('') + '</div>';
+    const list = '<div class="list">' + S.rows.map((r, i) => '<button class="row bill' + (r.on ? ' is-on' : '') + '" data-a="importToggle" data-i="' + i + '" aria-pressed="' + r.on + '"><span class="check">' + (r.on ? icon('check') : '') + '</span><span class="row-main"><b>' + esc(r.description) + '</b><small>' + H.shortDate(r.date) + (r.dup ? ' · ' + r.dup : '') + '</small>' + (r.inst ? '<small class="pos">marca paga: ' + esc(r.inst.label) + '</small>' : '') + '</span><span class="row-amt' + (S.kind === 'account' && r.amount > 0 ? ' pos' : '') + '">' + (S.kind === 'account' ? (r.amount > 0 ? '+ ' : '− ') : (r.amount < 0 ? '− ' : '')) + m(Math.abs(r.amount)) + '</span></button>').join('') + '</div>';
     if (S.kind === 'account') {
       const ins = H.sum(on.filter(r => r.amount > 0), r => r.amount), outs = H.sum(on.filter(r => r.amount < 0), r => -r.amount);
       html += '<section class="hero slim"><small>' + esc(S.name) + '</small><strong class="big">' + on.length + ' de ' + S.rows.length + ' lançamentos</strong><div class="hero-grid"><div><small>Entradas</small><b class="pos">' + m(ins) + '</b></div><div><small>Saídas</small><b>' + m(outs) + '</b></div></div></section>' +
-        '<div class="note warn">' + icon('alert') + '<p>Desmarquei o que parece repetido. Desmarque também pagamentos de contas e faturas que você já marcou como pagas no Mês, para não contar duas vezes.</p></div>';
+        '<div class="note warn">' + icon('alert') + '<p>Desmarquei o que parece repetido. Desmarque também pagamentos de contas e faturas que você já marcou como pagas no Mês, para não contar duas vezes. Saída com o valor exato de uma parcela em aberto marca essa parcela como paga.</p></div>';
     } else {
       const total = H.sum(on, r => r.amount);
       html += '<section class="hero slim"><small>' + esc(S.name) + '</small><strong class="big">' + m(total) + '</strong><small>Soma de ' + on.length + ' lançamentos marcados</small></section>';
@@ -149,6 +159,10 @@
           if (have.has(r.id)) continue;
           if (r.amount > 0) f.receipts.push({ id: r.id, date: r.date, amount: r.amount, description: r.description, owner: 2, kind: 'other' });
           else f.outflows.push({ id: r.id, date: r.date, amount: -r.amount, description: r.description });
+        }
+        for (const r of on) {
+          const p = r.inst && f.purchases.find(p => p.id === r.inst.id);
+          if (p && !p.paid.includes(r.inst.i)) p.paid = [...p.paid, r.inst.i].sort((a, b) => a - b);
         }
       });
       S = null; App.go('#/caixa');
