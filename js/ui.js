@@ -35,6 +35,9 @@
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.500v2.500M12 19v2.500M2.500 12H5M19 12h2.500M5.300 5.300 7 7M17 17l1.700 1.700M18.700 5.300 17 7M7 17l-1.700 1.700"/>',
     phone: '<rect x="6.500" y="2.500" width="11" height="19" rx="2.500"/><path d="M11 18h2"/>',
     star: '<path d="m12 3.500 2.600 5.400 5.900.800-4.300 4.100 1 5.900L12 16.900l-5.200 2.800 1-5.900-4.300-4.100 5.900-.800z"/>',
+    eye: '<path d="M2.500 12s3.500-6.500 9.500-6.500 9.500 6.500 9.500 6.500-3.500 6.500-9.500 6.500S2.500 12 2.500 12z"/><circle cx="12" cy="12" r="2.800"/>',
+    search: '<circle cx="11" cy="11" r="6.500"/><path d="m20 20-4.200-4.200"/>',
+    lock: '<rect x="5" y="11" width="14" height="9.500" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     dot: '<circle cx="12" cy="12" r="2"/>'
   };
   UI.icon = (name, cls) => '<svg class="ic ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || ICONS.dot) + '</svg>';
@@ -82,7 +85,7 @@
     else if (f.type === 'number') input = '<input id="' + id + '" name="' + f.name + '" inputmode="numeric" autocomplete="off" value="' + esc(f.value === null || f.value === undefined ? '' : f.value) + '"' + req + '>';
     else {
       const dl = f.list ? ' list="' + id + '-l"' : '';
-      input = '<input id="' + id + '" name="' + f.name + '" type="' + (f.type || 'text') + '" autocomplete="off" maxlength="' + (f.max || 120) + '" value="' + esc(f.value) + '"' + req + dl + '>';
+      input = '<input id="' + id + '" name="' + f.name + '" type="' + (f.type || 'text') + '"' + (f.type === 'password' ? ' inputmode="numeric"' : '') + ' autocomplete="off" maxlength="' + (f.max || 120) + '" value="' + esc(f.value) + '"' + req + dl + '>';
       if (f.list) input += '<datalist id="' + id + '-l">' + f.list.map(v => '<option value="' + esc(v) + '">').join('') + '</datalist>';
     }
     return '<label class="field" for="' + id + '"><span>' + esc(f.label) + (f.required ? '' : ' <i>opcional</i>') + '</span>' + input + (f.hint ? '<small>' + esc(f.hint) + '</small>' : '') + '</label>';

@@ -33,6 +33,8 @@
       () => act('Pagamento desfeito', f => { f.expenses = f.expenses.filter(e => !(e.budgetId === id && e.period === period)); }));
     if (it.kind === 'card' && (it.amount === null || it.paid)) return A.cardBill({ id, month });
     if (it.amount === null) return A.editBudget({ id });
+    /* valor já conhecido: um toque paga (dá para desfazer no aviso) */
+    if (it.kind === 'fixed' || it.bill.informed) return act('Pago: ' + it.title + ' · ' + m(it.amount), f => { f.expenses.push({ id: H.id(), budgetId: id, date: H.today(), amount: it.amount, description: 'Pagamento', period, method: 'cash' }); });
     UI.form({ title: 'Pagar ' + it.title, intro: 'Registra a saída e desconta do saldo em conta.', submit: 'Confirmar pagamento',
       fields: [{ name: 'amount', label: 'Valor pago', type: 'money', value: it.amount, required: true }, { name: 'date', label: 'Data do pagamento', type: 'date', value: H.today(), required: true }],
       onSubmit: v => { if (!v.amount) return 'Informe o valor pago.'; act('Pagamento registrado', f => { f.expenses.push({ id: H.id(), budgetId: id, date: v.date, amount: v.amount, description: 'Pagamento', period, method: 'cash' }); }); } });
@@ -52,13 +54,14 @@
     const debt = H.debtSummary(f), free = H.debtFreeMonth(f), after = cash.balance + cash.future - openSum;
     const late = open.filter(i => i.date && i.date < today).length;
     const focus = hz.goals.find(g => g.id === hz.focus && g.status !== 'done'), att = H.attentions(hz).slice(0, 3);
-    let html = head('Início', cap(H.WEEKDAYS[H.parseDate(today).getDay()]) + ', ' + H.dateLabel(today));
+    let html = head('Início', cap(H.WEEKDAYS[H.parseDate(today).getDay()]) + ', ' + H.dateLabel(today), App.homeButtons ? App.homeButtons() : '');
     const saved = H.savedSummary(f), bills = list.filter(i => i.kind === 'card'), billsOpen = bills.filter(i => !i.paid);
     html += '<section class="hero"><small>Guardado</small>' +
       (saved.count ? '<a class="big-link" href="#/guardado"><strong class="big">' + m(saved.total) + '</strong></a>' : '<a class="btn primary" href="#/guardado">Informar o que tenho guardado</a>') +
       '<div class="hero-grid"><div><small>Faturas de ' + monthName(month) + '</small><b>' + m(plan.cards) + '</b><span>' + (billsOpen.length ? billsOpen.length + (billsOpen.length === 1 ? ' em aberto' : ' em aberto') : 'tudo pago') + '</span></div>' +
       '<div><small>Empréstimos e parcelas</small><b>' + m(debt.remaining) + '</b><span>' + (debt.monthly ? m(debt.monthly) + ' neste mês' : 'falta quitar') + '</span></div></div></section>';
     if (late) html += '<a class="note warn" href="#/mes">' + icon('alert') + '<p><b>' + late + (late === 1 ? ' conta vencida' : ' contas vencidas') + ' sem baixa.</b> Se já pagou, marque como paga.</p></a>';
+    if (App.homeNotes) html += App.homeNotes(f, list);
     html += '<div class="cols"><section class="card"><div class="card-h"><h2>' + cap(monthName(month)) + '</h2><a href="#/mes">Ver mês</a></div>' +
       '<div class="trio"><div><small>Entradas</small><b>' + m(income) + '</b></div><div><small>Comprometido</small><b>' + m(plan.total) + '</b></div><div><small>Sobra prevista</small><b class="' + tone(income - plan.total) + '">' + m(income - plan.total) + '</b></div></div>' +
       composition(plan) + '</section>';
@@ -171,6 +174,7 @@
     let html = head('Dívidas', 'Parcelamentos e empréstimos', addBtn('editDebt', 'Nova'));
     html += '<section class="hero"><small>Falta quitar</small><strong class="big">' + m(debt.remaining) + '</strong>' + bar(debt.pct) +
       '<div class="hero-grid"><div><small>Parcelas deste mês</small><b>' + m(debt.monthly) + '</b><span>' + (debt.monthlyPending ? m(debt.monthlyPending) + ' em aberto' : 'tudo pago') + '</span></div><div><small>Livre de dívidas em</small><b>' + (free ? cap(H.monthShort(free)) : 'Já está') + '</b><span>' + debt.pct + '% já pago</span></div></div></section>';
+    if (free) html += '<button class="note" data-a="simulate">' + icon('target') + '<p><b>E se eu pagar um extra por mês?</b> Simule em que mês você fica livre das dívidas.</p></button>';
     if (debt.overdue) html += '<div class="note warn">' + icon('alert') + '<p><b>' + m(debt.overdue) + ' em parcelas vencidas sem baixa.</b> Abra a dívida e marque as que já foram pagas.</p></div>';
     html += '<section class="card"><div class="card-h"><h2>Em andamento</h2><span class="muted">' + open.length + '</span></div>' + (open.length ? '<div class="list">' + open.map(debtRow).join('') + '</div>' : App.empty('Nenhuma dívida em aberto.')) + '</section>';
     if (done.length) html += '<section class="card"><div class="card-h"><h2>Quitados</h2><span class="muted">' + done.length + '</span></div><div class="list">' + done.map(debtRow).join('') + '</div></section>';

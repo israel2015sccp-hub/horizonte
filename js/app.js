@@ -3,9 +3,9 @@
   'use strict';
   const { esc, icon } = UI;
   const App = window.App = { views: {}, actions: {}, month: null, route: '', param: '' };
-  const NAV = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['cartoes', 'Cartões', 'card'], ['dividas', 'Dívidas', 'wallet'], ['casa', 'Casa', 'basket'], ['guardado', 'Guardado', 'piggy'], ['caixa', 'Entradas e saídas', 'swap'], ['objetivos', 'Objetivos', 'target'], ['importar', 'Importar extrato', 'upload'], ['ajustes', 'Ajustes', 'settings']];
+  const NAV = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['cartoes', 'Cartões', 'card'], ['dividas', 'Dívidas', 'wallet'], ['casa', 'Casa', 'basket'], ['guardado', 'Guardado', 'piggy'], ['caixa', 'Entradas e saídas', 'swap'], ['objetivos', 'Objetivos', 'target'], ['importar', 'Importar extrato', 'upload'], ['buscar', 'Buscar', 'search'], ['ajustes', 'Ajustes', 'settings']];
   const TABS = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['dividas', 'Dívidas', 'wallet'], ['objetivos', 'Objetivos', 'target'], ['mais', 'Mais', 'grid']];
-  const TAB_OF = { guardado: 'mais', importar: 'mais', cartoes: 'mais', casa: 'mais', caixa: 'mais', ajustes: 'mais', objetivo: 'objetivos' };
+  const TAB_OF = { buscar: 'mais', guardado: 'mais', importar: 'mais', cartoes: 'mais', casa: 'mais', caixa: 'mais', ajustes: 'mais', objetivo: 'objetivos' };
   const V = App.views, A = App.actions;
 
   /* aplica uma mudança, salva e avisa (com Desfazer) */
@@ -45,7 +45,7 @@
   A.startBlank = () => { H.state = H.blankState(); H.persist(); App.go('#/inicio'); };
 
   /* ---------- menu "Mais" (celular) ---------- */
-  V.mais = () => App.head('Mais') + '<div class="list card">' + NAV.filter(n => ['guardado', 'cartoes', 'casa', 'caixa', 'importar', 'ajustes'].includes(n[0]))
+  V.mais = () => App.head('Mais') + '<div class="list card">' + NAV.filter(n => ['guardado', 'cartoes', 'casa', 'caixa', 'importar', 'buscar', 'ajustes'].includes(n[0]))
     .map(([r, label, ic]) => '<a class="row link" href="#/' + r + '"><span class="row-ic">' + icon(ic) + '</span><span class="row-main"><b>' + label + '</b></span>' + icon('chevR', 'dim') + '</a>').join('') + '</div>';
 
   /* ---------- ajustes e backup ---------- */
@@ -56,13 +56,12 @@
       '<section class="card"><h2>Backup</h2><p class="muted">Seus dados ficam só neste aparelho. Exporte um backup de vez em quando — é ele que leva tudo para outro aparelho.</p>' +
       '<div class="btn-row"><button class="btn primary" data-a="exportBackup">' + icon('download') + 'Exportar backup</button><button class="btn ghost" data-a="importBackup">' + icon('upload') + 'Importar backup</button></div>' +
       (when ? '<small class="muted">Última alteração: ' + new Date(when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + '</small>' : '') + '</section>' +
+      (App.settingsExtra ? App.settingsExtra() : '') +
       '<section class="card"><h2>Preferências</h2><div class="list">' +
       '<button class="row link" data-a="editNames"><span class="row-ic">' + icon('edit') + '</span><span class="row-main"><b>Nomes</b><small>' + esc(f.names.join(' e ')) + '</small></span>' + icon('chevR', 'dim') + '</button>' +
       '<button class="row link" data-a="toggleTheme"><span class="row-ic">' + icon('sun') + '</span><span class="row-main"><b>Tema</b><small>' + (f.dark ? 'Escuro' : 'Claro') + '</small></span><span class="pill">Trocar</span></button>' +
       '</div></section>' +
-      '<section class="card"><h2>No celular</h2><p class="muted">Quando o app estiver publicado em um endereço seguro, abra no navegador do celular e use "Adicionar à tela de início" para instalar como aplicativo.</p>' +
-      '<div class="list"><div class="row"><span class="row-ic">' + icon('repeat') + '</span><span class="row-main"><b>Sincronizar celular e computador</b><small>Em breve</small></span></div>' +
-      '<div class="row"><span class="row-ic">' + icon('card') + '</span><span class="row-main"><b>Ligar aos bancos (Open Finance)</b><small>Em breve</small></span></div></div></section>';
+      '<section class="card"><h2>No celular</h2><p class="muted">Abra este endereço no navegador do celular e use "Adicionar à tela de início" para instalar como aplicativo. Para levar os dados de um aparelho para outro, exporte o backup em um e importe no outro.</p></section>';
   };
   A.toggleTheme = () => { H.commit((f, h) => { f.dark = !f.dark; h.dark = f.dark; }); };
   A.editNames = () => {

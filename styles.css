@@ -241,3 +241,23 @@ textarea { padding: 12px 14px; resize: vertical; line-height: 1.45; }
 }
 
 .big-link { color: inherit; text-decoration: none; display: block; }
+
+/* extras: ocultar valores, gráfico, busca, PIN */
+.head .icon-btn.keep { display: grid; }
+button.note { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+a.note { text-decoration: none; }
+.hide-values .big, .hide-values .row-amt, .hide-values .hero-grid b, .hide-values .trio b, .hide-values .legend b, .hide-values .chart-v { filter: blur(9px); user-select: none; }
+.chart { display: flex; align-items: flex-end; gap: 8px; height: 150px; margin: 6px 0 8px; }
+.chart > div { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.chart i { display: block; width: 100%; max-width: 44px; border-radius: 8px 8px 3px 3px; background: var(--brand); }
+.chart small { color: var(--muted); font-size: 11.5px; }
+.chart-v { font-size: 11px; color: var(--muted); white-space: nowrap; }
+small.pos, b.pos { color: var(--brand); } small.neg { color: var(--danger); }
+.pad { padding: 10px 2px; }
+#q { width: 100%; }
+body.locked #app, body.locked #layer { display: none; }
+.lock { position: fixed; inset: 0; z-index: 99; background: var(--bg); display: grid; place-items: center; padding: 24px; }
+.lock form { width: 100%; max-width: 320px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.lock img { border-radius: 20px; }
+.lock label { color: var(--muted); }
+.lock input { width: 100%; min-height: 54px; text-align: center; font-size: 26px; letter-spacing: .3em; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }

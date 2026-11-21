@@ -105,6 +105,28 @@
     return open.length ? open[open.length - 1].date.slice(0, 7) : null;
   };
 
+  /* com um extra por mês adiantando as últimas parcelas, em que mês as dívidas acabam */
+  H.payoffWithExtra = (f, extra) => {
+    let open = H.allEntries(f.purchases).filter(e => !e.paid), month = H.currentMonth(), pot = 0;
+    if (!open.length) return null;
+    for (let n = 0; n < 720; n++) {
+      open = open.filter(e => e.date.slice(0, 7) > month);
+      pot += extra;
+      while (open.length && pot >= open[open.length - 1].amount) pot -= open.pop().amount;
+      if (!open.length) return month;
+      month = H.addMonths(month, 1);
+    }
+    return null;
+  };
+  /* faturas informadas que vieram bem acima da média dos 3 meses anteriores */
+  H.cardAlerts = (f, month) => H.activeCards(f).map(b => {
+    const now = H.limit(b, 'm:' + month);
+    const prev = [1, 2, 3].map(n => (b.allocations.find(a => a.period === 'm:' + H.addMonths(month, -n)) || {}).amount).filter(v => v > 0);
+    if (!b.allocations.some(a => a.period === 'm:' + month) || prev.length < 2) return null;
+    const avg = Math.round(sum(prev, v => v) / prev.length), pct = Math.round((now / avg - 1) * 100);
+    return pct >= 30 ? { name: H.cardName(b), amount: now, avg, pct } : null;
+  }).filter(Boolean);
+
   /* ---------- contas, caixinhas e cartões ---------- */
   H.canonicalBank = name => String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '').replace(/^fatura/, '').replace(/^cartao/, '').replace(/^credito/, '');
   H.cardMatches = (p, b) => H.canonicalBank(p.bank) === H.canonicalBank(b.name);
@@ -325,7 +347,8 @@
       .map(a => ({ id: a.id, bank: a.bank.trim(), owner: a.owner.trim(), type: a.type === 'pj' ? 'pj' : 'pf', keys: (Array.isArray(a.keys) ? a.keys : []).filter(k => str(k, 40) && k).slice(0, 20) }));
     /* guardado: caixinhas e investimentos, com o valor informado por último */
     f.savings = (Array.isArray(f.savings) ? f.savings : []).filter(x => x && str(x.id, 100) && x.id && str(x.name, 60) && x.name.trim() && Number.isSafeInteger(x.amount) && x.amount >= 0)
-      .map(x => ({ id: x.id, name: x.name.trim(), amount: x.amount, kind: x.kind === 'invest' ? 'invest' : 'box', place: str(x.place, 60) ? x.place : '', updated: H.validDate(x.updated) ? x.updated : H.today() }));
+      .map(x => ({ id: x.id, name: x.name.trim(), amount: x.amount, kind: x.kind === 'invest' ? 'invest' : 'box', goal: cents(x.goal) && x.goal > 0 ? x.goal : null, place: str(x.place, 60) ? x.place : '', updated: H.validDate(x.updated) ? x.updated : H.today() }));
+    f.savedLog = (Array.isArray(f.savedLog) ? f.savedLog : []).filter(x => x && H.validMonth(x.month) && cents(x.total)).map(x => ({ month: x.month, total: x.total })).slice(-36);
     const o = f.cashOpening;
     f.cashOpening = (o && H.validDate(o.date) && Number.isSafeInteger(o.amount)) ? { date: o.date, amount: o.amount } : null;
     f.monthlyPlans = f.monthlyPlans.filter(p => p && H.validMonth(p.month)).map(p => ({ month: p.month, expenseCap: cents(p.expenseCap) ? p.expenseCap : null, savingsGoal: cents(p.savingsGoal) ? p.savingsGoal : null }));
@@ -382,7 +405,15 @@
   };
   H._undo = null;
   /* aplica uma mudança guardando o estado anterior para "Desfazer" */
-  H.commit = fn => { H._undo = JSON.stringify(H.state); fn(H.state.finance, H.state.horizon); return H.persist(); };
+  /* anota o total guardado do mês, para o gráfico de evolução */
+  H.logSaved = f => {
+    if (!Array.isArray(f.savedLog)) f.savedLog = [];
+    if (!(f.savings || []).length && !f.savedLog.length) return;
+    const month = H.currentMonth(), total = H.savedSummary(f).total, cur = f.savedLog.find(x => x.month === month);
+    if (cur) cur.total = total; else f.savedLog.push({ month, total });
+    f.savedLog.sort((a, b) => a.month.localeCompare(b.month)); f.savedLog = f.savedLog.slice(-36);
+  };
+  H.commit = fn => { H._undo = JSON.stringify(H.state); fn(H.state.finance, H.state.horizon); H.logSaved(H.state.finance); return H.persist(); };
   H.undo = () => { if (!H._undo) return false; H.state = JSON.parse(H._undo); H._undo = null; H.persist(); return true; };
 
   H.sum = sum;
