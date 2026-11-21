@@ -150,11 +150,11 @@
       (f0.accounts.length ? '<div class="list">' + f0.accounts.map(a => '<button class="row" data-a="editAccount" data-id="' + esc(a.id) + '"><span class="row-main"><b>' + esc(a.bank) + '</b><small>' + esc(a.owner) + ' · ' + (a.type === 'pj' ? 'CNPJ' : 'CPF') + (a.keys.length ? ' · extrato reconhecido sozinho' : '') + '</small></span>' + icon('chevR', 'dim') + '</button>').join('') + '</div>'
         : '<p class="muted">Cadastre cada conta (banco, de quem é, CPF ou CNPJ). Ao importar, você diz de qual conta é o extrato; arquivos OFX passam a ser reconhecidos sozinhos.</p>') + '</section>';
     if (!S) return html +
-      '<section class="card"><h2>Como funciona</h2><p class="muted">No app ou site do banco, exporte o extrato ou a fatura em <b>OFX</b> ou <b>CSV</b> e escolha o arquivo aqui. Você confere tudo antes de entrar. Nenhuma senha, nenhuma conexão com o banco.</p>' +
+      '<section class="card"><h2>Como funciona</h2><p class="muted">No app ou site do banco, baixe o extrato ou a fatura em <b>PDF</b>, <b>OFX</b> ou <b>CSV</b> e escolha o arquivo aqui. Você confere tudo antes de entrar. Nenhuma senha, nenhuma conexão com o banco.</p>' +
       '<div class="btn-row"><button class="btn primary" data-a="pickStatement" data-kind="account">' + icon('swap') + 'Extrato da conta</button><button class="btn" data-a="pickStatement" data-kind="card">' + icon('card') + 'Fatura do cartão</button></div></section>' +
       '<div class="note">' + icon('alert') + '<p><b>Extrato da conta</b> lança entradas e saídas no saldo. <b>Fatura do cartão</b> preenche o valor da fatura do mês.</p></div>' + accounts;
     const on = S.rows.filter(r => r.on);
-    if (!S.rows.length) return html + '<section class="card">' + App.empty('Não encontrei lançamentos em "' + S.name + '". Confira se o arquivo é OFX ou CSV.', '<button class="btn" data-a="importCancel">Escolher outro arquivo</button>') + '</section>';
+    if (!S.rows.length) return html + '<section class="card">' + App.empty('Não encontrei lançamentos em "' + S.name + '". Confira se o arquivo é PDF, OFX ou CSV. PDF que é foto ou escaneado não dá para ler.', '<button class="btn" data-a="importCancel">Escolher outro arquivo</button>') + '</section>';
     const env = H.envelopes(F()), envName = id => (env.find(b => b.id === id) || {}).name;
     const list = '<div class="list">' + S.rows.map((r, i) => '<div class="row bill imp' + (r.on ? ' is-on' : '') + '"><button class="imp-main" data-a="importToggle" data-i="' + i + '" aria-pressed="' + r.on + '"><span class="check">' + (r.on ? icon('check') : '') + '</span><span class="row-main"><b>' + esc(r.description) + '</b><small>' + H.shortDate(r.date) + (r.dup ? ' · ' + r.dup : '') + '</small>' + (r.inst ? '<small class="pos">marca paga: ' + esc(r.inst.label) + '</small>' : '') + '</span><span class="row-amt' + (S.kind === 'account' && r.amount > 0 ? ' pos' : '') + '">' + (S.kind === 'account' ? (r.amount > 0 ? '+ ' : '− ') : (r.amount < 0 ? '− ' : '')) + m(Math.abs(r.amount)) + '</span></button>' +
       (S.kind === 'account' && r.amount < 0 && !r.inst && env.length && r.on ? '<button class="imp-cat' + (envName(r.cat) ? ' has' : '') + '" data-a="importCat" data-i="' + i + '">' + (envName(r.cat) ? 'Caixinha: <b>' + esc(envName(r.cat)) + '</b> · trocar' : 'Sem caixinha · escolher') + '</button>' : '') + '</div>').join('') + '</div>';
@@ -172,13 +172,14 @@
   };
 
   App.importText = (kind, name, text) => { try { prepare(kind, name, H.parseStatement(text)); } catch (e) { S = { kind, name, rows: [] }; } App.render(); };
-  A.pickStatement = ({ kind }) => {
+  App.importParsed = (kind, name, parsed) => { try { prepare(kind, name, parsed); } catch (e) { S = { kind, name, rows: [] }; } App.render(); };
+  A.pickStatement =({ kind }) => {
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.ofx,.csv,.txt,text/csv,application/x-ofx';
+    input.type = 'file'; input.accept = '.pdf,.ofx,.csv,.txt,application/pdf,text/csv,application/x-ofx';
     input.addEventListener('change', async () => {
       const file = input.files[0];
       if (!file) return;
-      if (/\.pdf$/i.test(file.name)) return UI.toast('PDF ainda não é lido aqui. Exporte em OFX ou CSV.');
+      if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') return App.readPdf(file, kind);
       const buf = await file.arrayBuffer();
       let text;
       try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
