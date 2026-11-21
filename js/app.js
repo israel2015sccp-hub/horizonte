@@ -11,8 +11,16 @@
   /* aplica uma mudança, salva e avisa (com Desfazer) */
   App.act = (msg, fn) => { const ok = H.commit(fn); UI.toast(ok ? msg : msg + ' (o navegador não deixou salvar)', { undo: true }); };
   App.go = hash => { if (location.hash === hash) App.render(); else location.hash = hash; };
-  App.head = (title, sub, right, back) => '<header class="head">' + (back ? '<a class="icon-btn" href="' + back + '" aria-label="Voltar">' + icon('chevL') + '</a>' : '') +
-    '<div class="head-t"><h1>' + esc(title) + '</h1>' + (sub ? '<p>' + sub + '</p>' : '') + '</div><div class="head-r">' + (right || '') + '</div></header>';
+  /* cabeçalho no padrão iOS: barra fixa (voltar, título pequeno, botões) + título grande que some ao rolar */
+  const backLabel = href => { const r = String(href).replace(/^#\/?/, '').split('/')[0]; const n = NAV.concat([['mais', 'Mais']]).find(x => x[0] === r); return n ? n[1] : 'Voltar'; };
+  App.head = (title, sub, right, back) => '<header class="head"><div class="nav-bar"><span class="nav-l">' +
+    (back ? '<a class="back" href="' + back + '" aria-label="Voltar">' + icon('chevL') + '<span>' + esc(backLabel(back)) + '</span></a>' : '') +
+    '</span><b class="nav-t" aria-hidden="true">' + esc(title) + '</b><span class="nav-r head-r">' + (right || '') + '</span></div>' +
+    '<div class="head-t"><h1>' + esc(title) + '</h1>' + (sub ? '<p>' + sub + '</p>' : '') + '</div></header>';
+  const onScroll = () => document.body.classList.toggle('scrolled', window.scrollY > 36);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  /* faz o :active funcionar no toque do iPhone (destaque na hora que encosta) */
+  document.addEventListener('touchstart', () => {}, { passive: true });
   /* bloco que abre e fecha: o que é detalhe fica um toque abaixo. Lembra se estava aberto ao redesenhar a tela. */
   const OPEN = new Set();
   App.fold = (key, summary, body, cls) => '<details class="fold' + (cls ? ' ' + cls : '') + '" data-k="' + esc(key) + '"' + (OPEN.has(key) ? ' open' : '') + '><summary>' + summary + icon('chevR', 'dim') + '</summary><div class="fold-b">' + body + '</div></details>';
@@ -25,7 +33,7 @@
     document.body.classList.remove('no-data');
     const dark = H.state.finance.dark;
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    document.querySelector('meta[name=theme-color]').content = dark ? '#0b0f0d' : '#f3f5f2';
+    document.querySelector('meta[name=theme-color]').content = dark ? '#000000' : '#f2f2f7';
     const parts = location.hash.replace(/^#\/?/, '').split('/');
     const route = V[parts[0]] && parts[0] !== 'bemvindo' ? parts[0] : 'inicio', param = parts[1] ? decodeURIComponent(parts[1]) : '';
     const changed = route !== App.route || param !== App.param;
@@ -37,7 +45,8 @@
       a.classList.toggle('on', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     }
-    if (changed) window.scrollTo(0, 0);
+    if (changed) { window.scrollTo(0, 0); view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); }
+    onScroll();
     UI.refresh();
   };
 

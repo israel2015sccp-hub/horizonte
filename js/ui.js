@@ -40,18 +40,67 @@
     lock: '<rect x="5" y="11" width="14" height="9.500" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     dot: '<circle cx="12" cy="12" r="2"/>'
   };
-  UI.icon = (name, cls) => '<svg class="ic ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || ICONS.dot) + '</svg>';
+  UI.icon = (name, cls) => '<svg class="ic ' + (cls || '') + '" data-i="' + name + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || ICONS.dot) + '</svg>';
   UI.bar = (pct, cls) => '<span class="bar ' + (cls || '') + '"><i style="width:' + Math.max(0, Math.min(100, pct || 0)) + '%"></i></span>';
 
   /* ---------- folha (modal) ---------- */
   let current = null;
   const layer = () => document.getElementById('layer');
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   UI.close = () => {
     if (!current) return;
     const el = current.el; current = null;
+    const sheet = el.querySelector('.sheet');
+    /* desce pelo mesmo caminho por onde subiu, partindo de onde está agora (mesmo no meio do arraste) */
+    if (sheet) { sheet.classList.remove('dragging'); sheet.style.transform = ''; }
     el.classList.add('closing');
-    setTimeout(() => el.remove(), 180);
+    setTimeout(() => el.remove(), reduced() ? 220 : 420);
     document.body.classList.remove('sheet-open');
+  };
+
+  /* arrastar a folha para baixo para fechar: segue o dedo 1:1, resiste para cima, projeta o impulso ao soltar */
+  const rubber = (x, d) => (x * d * .55) / (d + .55 * Math.abs(x));
+  const dragToDismiss = (el, sheet) => {
+    let start = null, y = 0, hist = [];
+    const body = sheet.querySelector('.sheet-body');
+    const down = e => {
+      if (e.button > 0 || window.matchMedia('(min-width: 900px)').matches) return;
+      const inBody = body.contains(e.target);
+      if (inBody && body.scrollTop > 0) return;
+      if (e.target.closest('input,select,textarea,button:not([data-close]),a')) return;
+      start = { y: e.clientY, id: e.pointerId, inBody, live: false }; hist = [{ y: 0, t: e.timeStamp }]; y = 0;
+    };
+    const move = e => {
+      if (!start || e.pointerId !== start.id) return;
+      const dy = e.clientY - start.y;
+      if (!start.live) {
+        if (Math.abs(dy) < 8) return;
+        if (start.inBody && dy < 0) { start = null; return; }
+        start.live = true; sheet.classList.add('dragging');
+        try { sheet.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+      y = dy < 0 ? rubber(dy, sheet.offsetHeight) : dy;
+      sheet.style.transform = 'translateY(' + y + 'px)';
+      el.style.backgroundColor = 'rgba(0,0,0,' + (.28 * Math.max(0, 1 - y / sheet.offsetHeight)).toFixed(3) + ')';
+      hist.push({ y: dy, t: e.timeStamp }); if (hist.length > 5) hist.shift();
+      e.preventDefault();
+    };
+    const up = e => {
+      if (!start || e.pointerId !== start.id) return;
+      const live = start.live; start = null;
+      if (!live) return;
+      const a = hist[0], b = hist[hist.length - 1], dt = Math.max(1, b.t - a.t);
+      const v = (b.y - a.y) / dt * 1000; /* px/s */
+      const projected = y + (v / 1000) * .998 / (1 - .998);
+      el.style.backgroundColor = '';
+      if (projected > sheet.offsetHeight * .4) { UI.close(); return; }
+      sheet.classList.remove('dragging');
+      sheet.style.transform = '';
+    };
+    sheet.addEventListener('pointerdown', down);
+    sheet.addEventListener('pointermove', move);
+    sheet.addEventListener('pointerup', up);
+    sheet.addEventListener('pointercancel', up);
   };
   /* opts: { title, html } para conteúdo fixo, ou { title, render } para conteúdo que acompanha os dados */
   UI.sheet = opts => {
@@ -61,6 +110,7 @@
     el.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(opts.title) + '"><header class="sheet-head"><h2>' + esc(opts.title) + '</h2><button class="icon-btn" type="button" data-close aria-label="Fechar">' + UI.icon('x') + '</button></header><div class="sheet-body"></div></div>';
     el.addEventListener('click', e => { if (e.target === el || e.target.closest('[data-close]')) UI.close(); });
     layer().append(el);
+    dragToDismiss(el, el.querySelector('.sheet'));
     current = { el, render: opts.render || null };
     el.querySelector('.sheet-body').innerHTML = opts.render ? opts.render() : opts.html;
     document.body.classList.add('sheet-open');
