@@ -164,9 +164,10 @@
 
   /* ---------- entradas, saídas e saldo ---------- */
   H.personName = (f, owner) => owner === 2 ? 'Casal' : (f.names[owner] || 'Você');
+  H.accountName = (f, id) => { const a = id && (f.accounts || []).find(a => a.id === id); return a ? [a.bank, a.owner, a.type === 'pj' ? 'CNPJ' : 'CPF'].filter(Boolean).join(' · ') : ''; };
   H.cashRows = f => [
-    ...f.receipts.map(r => ({ ...r, kind: r.kind || 'salary', direction: 'in', source: 'receipt', who: H.personName(f, r.owner) })),
-    ...f.outflows.map(r => ({ ...r, direction: 'out', source: 'outflow', who: 'Saída avulsa' })),
+    ...f.receipts.map(r => ({ ...r, kind: r.kind || 'salary', direction: 'in', source: 'receipt', who: H.accountName(f, r.account) || H.personName(f, r.owner) })),
+    ...f.outflows.map(r => ({ ...r, direction: 'out', source: 'outflow', who: H.accountName(f, r.account) || 'Saída avulsa' })),
     ...f.expenses.map(e => {
       const b = f.budgets.find(b => b.id === e.budgetId);
       return { ...e, direction: e.method === 'credit' ? 'credit' : 'out', source: 'expense', description: e.description || (b ? b.name : 'Pagamento'), who: b ? b.name : 'Casa' };
@@ -318,6 +319,9 @@
     for (const [k, income] of [['receipts', true], ['outflows', false]])
       f[k] = f[k].filter(r => r && str(r.id, 100) && H.validDate(r.date) && cents(r.amount) && r.amount > 0 && str(r.description, 300))
         .map(r => income ? { ...r, owner: [0, 1, 2].includes(r.owner) ? r.owner : 0, kind: r.kind === 'other' ? 'other' : 'salary' } : { ...r });
+    /* contas bancárias: banco, dono, CPF/CNPJ e as "chaves" que reconhecem o extrato (nunca o número da conta) */
+    f.accounts = (Array.isArray(f.accounts) ? f.accounts : []).filter(a => a && str(a.id, 100) && a.id && str(a.bank, 60) && a.bank.trim() && str(a.owner, 60))
+      .map(a => ({ id: a.id, bank: a.bank.trim(), owner: a.owner.trim(), type: a.type === 'pj' ? 'pj' : 'pf', keys: (Array.isArray(a.keys) ? a.keys : []).filter(k => str(k, 40) && k).slice(0, 20) }));
     const o = f.cashOpening;
     f.cashOpening = (o && H.validDate(o.date) && Number.isSafeInteger(o.amount)) ? { date: o.date, amount: o.amount } : null;
     f.monthlyPlans = f.monthlyPlans.filter(p => p && H.validMonth(p.month)).map(p => ({ month: p.month, expenseCap: cents(p.expenseCap) ? p.expenseCap : null, savingsGoal: cents(p.savingsGoal) ? p.savingsGoal : null }));

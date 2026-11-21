@@ -33,7 +33,9 @@
       const date = toDate(tag(block, 'DTPOSTED')), amount = toCents(tag(block, 'TRNAMT').replace(',', '.'));
       if (date && amount) rows.push({ date, amount, description: clean(tag(block, 'MEMO') || tag(block, 'NAME')) || 'Lançamento', ref: tag(block, 'FITID') });
     }
-    return { rows, card: /<CREDITCARDMSGSRSV1>|<CCSTMTRS>/i.test(text) };
+    /* a "chave" da conta é um resumo embaralhado de banco + conta: reconhece o extrato sem guardar o número */
+    const acct = tag(text, 'ACCTID');
+    return { rows, card: /<CREDITCARDMSGSRSV1>|<CCSTMTRS>/i.test(text), acct: acct ? hash(tag(text, 'BANKID') + '|' + acct) : '', org: clean(tag(text, 'ORG')).slice(0, 60) };
   };
   const splitCSV = (text, sep) => {
     const out = []; let row = [], cell = '', q = false;
@@ -100,7 +102,7 @@
       /* na fatura, gasto vem positivo; no extrato, gasto vem negativo */
       const amount = kind === 'card' ? r.amount : r.amount, key = r.ref || r.date + '|' + amount + '|' + r.description;
       seen[key] = (seen[key] || 0) + 1;
-      const id = 'imp:' + hash(kind + '|' + key + '|' + seen[key]);
+      const id = 'imp:' + hash(kind + '|' + (parsed.acct || '') + '|' + key + '|' + seen[key]);
       let dup = '';
       if (kind === 'account') {
         if (ids.has(id)) dup = 'já importado';
@@ -108,21 +110,54 @@
       } else if (/pagamento|payment/i.test(r.description)) dup = 'pagamento da fatura';
       return { ...r, amount, id, dup, on: !dup, inst: dup === 'já importado' ? null : matchInst(r) };
     }).sort((a, b) => b.date.localeCompare(a.date));
-    S = { kind, name, rows };
+    const known = kind === 'account' && parsed.acct ? f.accounts.find(a => a.keys.includes(parsed.acct)) : null;
+    S = { kind, name, rows, acct: parsed.acct || '', org: parsed.org || '', account: known ? known.id : null, auto: !!known };
   };
+
+  /* ---------- contas ---------- */
+  const accountForm = (acc, done) => {
+    const f = F();
+    UI.form({ title: acc ? 'Editar conta' : 'Nova conta', intro: 'Só o nome do banco e de quem é. Nada de número de conta ou senha.',
+      fields: [{ name: 'bank', label: 'Banco', value: acc ? acc.bank : (S && S.org) || '', max: 60, required: true, list: ['Nubank', 'Itaú', 'Santander', 'Mercado Pago', 'Bradesco', 'Caixa', 'Banco do Brasil', 'Inter', 'C6 Bank'] },
+        { name: 'owner', label: 'De quem é', value: acc ? acc.owner : '', max: 60, required: true, list: [...f.names, 'Casal'] },
+        { name: 'type', label: 'Tipo', type: 'select', value: acc ? acc.type : 'pf', options: [['pf', 'CPF (pessoal)'], ['pj', 'CNPJ (empresa)']] }],
+      danger: acc ? { label: 'Excluir conta', onClick: () => UI.confirm('Excluir conta?', 'Os lançamentos já importados continuam no Caixa, só perdem o nome da conta.', 'Excluir', () => App.act('Conta excluída', f => { f.accounts = f.accounts.filter(a => a.id !== acc.id); }), true) } : null,
+      onSubmit: v => {
+        const id = acc ? acc.id : H.id();
+        App.act(acc ? 'Conta atualizada' : 'Conta criada', f => {
+          const a = f.accounts.find(a => a.id === id);
+          if (a) Object.assign(a, { bank: v.bank, owner: v.owner, type: v.type }); else f.accounts.push({ id, bank: v.bank, owner: v.owner, type: v.type, keys: [] });
+        });
+        if (done) setTimeout(() => done(id), 0);
+      } });
+  };
+  A.newAccount = () => accountForm(null);
+  A.editAccount = ({ id }) => { const a = F().accounts.find(a => a.id === id); if (a) accountForm(a); };
+  const chooseAccount = done => {
+    const f = F(), pick = id => { S.account = id; S.auto = false; App.render(); if (done) done(); };
+    if (!f.accounts.length) return accountForm(null, pick);
+    UI.form({ title: 'De qual conta é este extrato?', intro: S.acct ? 'Na próxima vez o app reconhece esta conta sozinho.' : '', submit: 'Continuar',
+      fields: [{ name: 'account', label: 'Conta', type: 'select', value: S.account || f.accounts[0].id, options: [...f.accounts.map(a => [a.id, H.accountName(f, a.id)]), ['__new', 'Nova conta…']], required: true }],
+      onSubmit: v => { if (v.account === '__new') setTimeout(() => accountForm(null, pick), 0); else setTimeout(() => pick(v.account), 0); } });
+  };
+  A.importAccount = () => chooseAccount();
 
   V.importar = () => {
     let html = head('Importar extrato', 'O arquivo é lido só neste aparelho', '', '#/mais');
+    const f0 = F(), accounts = '<section class="card"><div class="card-h"><h2>Suas contas</h2><button class="btn small" data-a="newAccount">' + icon('plus') + 'Nova conta</button></div>' +
+      (f0.accounts.length ? '<div class="list">' + f0.accounts.map(a => '<button class="row" data-a="editAccount" data-id="' + esc(a.id) + '"><span class="row-main"><b>' + esc(a.bank) + '</b><small>' + esc(a.owner) + ' · ' + (a.type === 'pj' ? 'CNPJ' : 'CPF') + (a.keys.length ? ' · extrato reconhecido sozinho' : '') + '</small></span>' + icon('chevron') + '</button>').join('') + '</div>'
+        : '<p class="muted">Cadastre cada conta (banco, de quem é, CPF ou CNPJ). Ao importar, você diz de qual conta é o extrato; arquivos OFX passam a ser reconhecidos sozinhos.</p>') + '</section>';
     if (!S) return html +
       '<section class="card"><h2>Como funciona</h2><p class="muted">No app ou site do banco, exporte o extrato ou a fatura em <b>OFX</b> ou <b>CSV</b> e escolha o arquivo aqui. Você confere tudo antes de entrar. Nenhuma senha, nenhuma conexão com o banco.</p>' +
       '<div class="btn-row"><button class="btn primary" data-a="pickStatement" data-kind="account">' + icon('swap') + 'Extrato da conta</button><button class="btn" data-a="pickStatement" data-kind="card">' + icon('card') + 'Fatura do cartão</button></div></section>' +
-      '<div class="note">' + icon('alert') + '<p><b>Extrato da conta</b> lança entradas e saídas no saldo. <b>Fatura do cartão</b> preenche o valor da fatura do mês.</p></div>';
+      '<div class="note">' + icon('alert') + '<p><b>Extrato da conta</b> lança entradas e saídas no saldo. <b>Fatura do cartão</b> preenche o valor da fatura do mês.</p></div>' + accounts;
     const on = S.rows.filter(r => r.on);
     if (!S.rows.length) return html + '<section class="card">' + App.empty('Não encontrei lançamentos em "' + S.name + '". Confira se o arquivo é OFX ou CSV.', '<button class="btn" data-a="importCancel">Escolher outro arquivo</button>') + '</section>';
     const list = '<div class="list">' + S.rows.map((r, i) => '<button class="row bill' + (r.on ? ' is-on' : '') + '" data-a="importToggle" data-i="' + i + '" aria-pressed="' + r.on + '"><span class="check">' + (r.on ? icon('check') : '') + '</span><span class="row-main"><b>' + esc(r.description) + '</b><small>' + H.shortDate(r.date) + (r.dup ? ' · ' + r.dup : '') + '</small>' + (r.inst ? '<small class="pos">marca paga: ' + esc(r.inst.label) + '</small>' : '') + '</span><span class="row-amt' + (S.kind === 'account' && r.amount > 0 ? ' pos' : '') + '">' + (S.kind === 'account' ? (r.amount > 0 ? '+ ' : '− ') : (r.amount < 0 ? '− ' : '')) + m(Math.abs(r.amount)) + '</span></button>').join('') + '</div>';
     if (S.kind === 'account') {
       const ins = H.sum(on.filter(r => r.amount > 0), r => r.amount), outs = H.sum(on.filter(r => r.amount < 0), r => -r.amount);
       html += '<section class="hero slim"><small>' + esc(S.name) + '</small><strong class="big">' + on.length + ' de ' + S.rows.length + ' lançamentos</strong><div class="hero-grid"><div><small>Entradas</small><b class="pos">' + m(ins) + '</b></div><div><small>Saídas</small><b>' + m(outs) + '</b></div></div></section>' +
+        '<section class="card"><div class="list"><button class="row" data-a="importAccount"><span class="row-main"><b>' + (S.account ? esc(H.accountName(F(), S.account)) : 'De qual conta é este extrato?') + '</b><small>' + (S.account ? (S.auto ? 'Conta reconhecida pelo arquivo' : 'Conta escolhida') + ' · toque para trocar' : 'Toque para escolher') + '</small></span>' + icon('chevron') + '</button></div></section>' +
         '<div class="note warn">' + icon('alert') + '<p>Desmarquei o que parece repetido. Desmarque também pagamentos de contas e faturas que você já marcou como pagas no Mês, para não contar duas vezes. Saída com o valor exato de uma parcela em aberto marca essa parcela como paga.</p></div>';
     } else {
       const total = H.sum(on, r => r.amount);
@@ -153,12 +188,15 @@
     const on = S.rows.filter(r => r.on);
     if (!on.length) return;
     if (S.kind === 'account') {
+      if (!S.account || !F().accounts.some(a => a.id === S.account)) return chooseAccount(() => A.importApply());
+      const account = S.account, key = S.acct;
       App.act(on.length + ' lançamentos importados', f => {
-        const have = new Set([...f.receipts, ...f.outflows].map(r => r.id));
+        const have = new Set([...f.receipts, ...f.outflows].map(r => r.id)), acc = f.accounts.find(a => a.id === account);
+        if (key && !acc.keys.includes(key)) acc.keys.push(key);
         for (const r of on) {
           if (have.has(r.id)) continue;
-          if (r.amount > 0) f.receipts.push({ id: r.id, date: r.date, amount: r.amount, description: r.description, owner: 2, kind: 'other' });
-          else f.outflows.push({ id: r.id, date: r.date, amount: -r.amount, description: r.description });
+          if (r.amount > 0) f.receipts.push({ id: r.id, date: r.date, amount: r.amount, description: r.description, owner: 2, kind: 'other', account });
+          else f.outflows.push({ id: r.id, date: r.date, amount: -r.amount, description: r.description, account });
         }
         for (const r of on) {
           const p = r.inst && f.purchases.find(p => p.id === r.inst.id);

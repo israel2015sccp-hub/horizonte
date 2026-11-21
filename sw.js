@@ -1,5 +1,5 @@
 /* Horizonte — funciona sem internet. Os dados nunca passam por aqui: ficam no aparelho. */
-const CACHE = 'horizonte-v3';
+const CACHE = 'horizonte-v4';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/core.js', 'js/ui.js', 'js/app.js', 'js/views-finance.js', 'js/views-goals.js', 'js/import.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
