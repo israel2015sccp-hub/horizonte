@@ -17,7 +17,7 @@
 
   V.guardado = () => {
     const f = F(), s = H.savedSummary(f);
-    let html = App.head('Guardado', 'Caixinhas e investimentos', '', '#/mais');
+    let html = App.head('Guardado', 'Caixinhas e investimentos');
     html += '<section class="hero"><small>Total guardado</small><strong class="big">' + m(s.total) + '</strong>' +
       '<div class="hero-grid"><div><small>Em caixinhas</small><b>' + m(s.box) + '</b></div><div><small>Investido</small><b>' + m(s.invest) + '</b></div></div>' +
       '<div class="btn-row"><button class="btn primary" data-a="editSaved">' + icon('plus') + 'Novo</button></div></section>';

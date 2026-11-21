@@ -49,33 +49,28 @@
   /* ---------- Início ---------- */
   V.inicio = () => {
     const f = F(), hz = H.state.horizon, month = H.currentMonth(), today = H.today();
-    const plan = H.monthPlan(f, month), income = H.monthIncome(f, month), cash = H.cashSummary(f, month);
+    const plan = H.monthPlan(f, month), income = H.monthIncome(f, month);
     const list = H.monthChecklist(f, month), open = list.filter(i => !i.paid), openSum = sum(open, i => i.amount || 0);
-    const debt = H.debtSummary(f), free = H.debtFreeMonth(f), after = cash.balance + cash.future - openSum;
+    const debt = H.debtSummary(f), free = H.debtFreeMonth(f);
     const late = open.filter(i => i.date && i.date < today).length;
-    const focus = hz.goals.find(g => g.id === hz.focus && g.status !== 'done'), att = H.attentions(hz).slice(0, 3);
+    const focus = hz.goals.find(g => g.id === hz.focus && g.status !== 'done'), att = H.attentions(hz);
     let html = head('Início', cap(H.WEEKDAYS[H.parseDate(today).getDay()]) + ', ' + H.dateLabel(today), App.homeButtons ? App.homeButtons() : '');
     const saved = H.savedSummary(f), bills = list.filter(i => i.kind === 'card'), billsOpen = bills.filter(i => !i.paid);
     html += '<section class="hero"><small>Guardado</small>' +
       (saved.count ? '<a class="big-link" href="#/guardado"><strong class="big">' + m(saved.total) + '</strong></a>' : '<a class="btn primary" href="#/guardado">Informar o que tenho guardado</a>') +
       '<div class="hero-grid"><div><small>Faturas de ' + monthName(month) + '</small><b>' + m(plan.cards) + '</b><span>' + (billsOpen.length ? billsOpen.length + (billsOpen.length === 1 ? ' em aberto' : ' em aberto') : 'tudo pago') + '</span></div>' +
       '<div><small>Empréstimos e parcelas</small><b>' + m(debt.remaining) + '</b><span>' + (debt.monthly ? m(debt.monthly) + ' neste mês' : 'falta quitar') + '</span></div></div></section>';
-    if (late) html += '<a class="note warn" href="#/mes">' + icon('alert') + '<p><b>' + late + (late === 1 ? ' conta vencida' : ' contas vencidas') + ' sem baixa.</b> Se já pagou, marque como paga.</p></a>';
-    if (App.homeNotes) html += App.homeNotes(f, list);
-    html += '<div class="cols"><section class="card"><div class="card-h"><h2>' + cap(monthName(month)) + '</h2><a href="#/mes">Ver mês</a></div>' +
-      '<div class="trio"><div><small>Entradas</small><b>' + m(income) + '</b></div><div><small>Comprometido</small><b>' + m(plan.total) + '</b></div><div><small>Sobra prevista</small><b class="' + tone(income - plan.total) + '">' + m(income - plan.total) + '</b></div></div>' +
-      composition(plan) + '</section>';
-    html += '<section class="card"><div class="card-h"><h2>Dívidas</h2><a href="#/dividas">Ver todas</a></div>' +
-      '<div class="trio two"><div><small>Falta quitar</small><b>' + m(debt.remaining) + '</b></div><div><small>Livre de dívidas em</small><b>' + (free ? H.monthShort(free) : 'já está') + '</b></div></div>' +
-      bar(debt.pct) + '<small class="muted">' + debt.pct + '% pago · ' + debt.pending + ' parcelas restantes</small></section></div>';
-    html += '<section class="card"><div class="card-h"><h2>Próximos vencimentos</h2><a href="#/mes">Ver mês</a></div>' +
-      (open.length ? '<div class="list">' + open.slice(0, 6).map(i => billRow(i, month)).join('') + '</div>' + (open.length > 6 ? '<a class="more" href="#/mes">mais ' + (open.length - 6) + ' em aberto</a>' : '') : App.empty('Nada em aberto em ' + monthName(month) + '.')) + '</section>';
-    if (focus || att.length) {
-      html += '<section class="card"><div class="card-h"><h2>Objetivos</h2><a href="#/objetivos">Ver todos</a></div>';
-      if (focus) { const pct = H.goalPercent(focus, f); html += '<a class="row link focus" href="#/objetivo/' + encodeURIComponent(focus.id) + '"><span class="row-ic">' + icon('star') + '</span><span class="row-main"><b>' + esc(focus.title) + '</b><small>Foco do ano · ' + esc(H.goalHeadline(focus, f)) + '</small>' + bar(pct) + '</span><span class="row-amt">' + pct + '%</span></a>'; }
-      if (att.length) html += '<div class="list">' + att.map(a => '<a class="row link" href="#/objetivo/' + encodeURIComponent(a.g.id) + '"><span class="row-ic ' + a.severity + '">' + icon(a.severity === 'danger' ? 'alert' : 'clock') + '</span><span class="row-main"><b>' + esc(a.title) + '</b><small>' + esc(a.description) + ' · ' + esc(a.g.title) + '</small></span><span class="row-amt"><small>' + H.relative(a.date) + '</small></span></a>').join('') + '</div>';
-      html += '</section>';
-    }
+    /* avisos: só o mais importante aparece; o resto fica um toque abaixo */
+    const notes = (late ? ['<a class="note warn" href="#/mes">' + icon('alert') + '<p><b>' + late + (late === 1 ? ' conta vencida' : ' contas vencidas') + ' sem baixa.</b> Se já pagou, marque como paga.</p></a>'] : []).concat(App.homeNotes ? App.homeNotes(f, list) : []);
+    if (notes.length) html += notes[0] + (notes.length > 1 ? App.fold('avisos', '<span class="row-main">Mais ' + (notes.length - 1) + (notes.length === 2 ? ' aviso' : ' avisos') + '</span>', notes.slice(1).join(''), 'plain') : '');
+    html += '<section class="card"><div class="card-h"><h2>Próximos vencimentos</h2><a href="#/mes">Ver todos</a></div>' +
+      (open.length ? '<div class="list">' + open.slice(0, 4).map(i => billRow(i, month)).join('') + '</div>' + (open.length > 4 ? '<a class="more" href="#/mes">mais ' + (open.length - 4) + ' em aberto · ' + m(openSum) + ' no total</a>' : '') : App.empty('Nada em aberto em ' + monthName(month) + '.')) + '</section>';
+    const link = (href, ic, title, sub, amt) => '<a class="row link" href="' + href + '"><span class="row-ic">' + icon(ic) + '</span><span class="row-main"><b>' + title + '</b><small>' + sub + '</small></span><span class="row-amt">' + amt + '</span></a>';
+    html += '<h2 class="sec">Resumo</h2><div class="list card">' +
+      link('#/mes', 'calendar', cap(monthName(month)), 'Entra ' + m(income) + ' · sai ' + m(plan.total), '<span class="' + tone(income - plan.total) + '">' + m(income - plan.total) + '</span><small>sobra prevista</small>') +
+      link('#/dividas', 'wallet', 'Dívidas', debt.pct + '% pago · ' + debt.pending + ' parcelas restantes', (free ? cap(H.monthShort(free)) : 'Quitadas') + '<small>' + (free ? 'fim das dívidas' : 'nada a pagar') + '</small>') +
+      (focus ? link('#/objetivo/' + encodeURIComponent(focus.id), 'star', esc(focus.title), 'Foco do ano · ' + esc(H.goalHeadline(focus, f)), H.goalPercent(focus, f) + '%') : '') +
+      (att.length ? link('#/objetivos', 'clock', att.length + (att.length === 1 ? ' pendência nos objetivos' : ' pendências nos objetivos'), esc(att[0].title), '') : '') + '</div>';
     return html;
   };
 
@@ -87,19 +82,23 @@
   V.mes = () => {
     const f = F(), month = App.month, plan = H.monthPlan(f, month), income = H.monthIncome(f, month), set = H.monthSettings(f, month);
     const list = H.monthChecklist(f, month), paid = list.filter(i => i.paid), left = income - plan.total;
-    let html = head('Mês', 'O que entra, o que já está comprometido e o que sobra') + monthNav();
+    let html = head('Mês') + monthNav();
     html += '<section class="hero"><small>Sobra prevista' + (plan.unknown ? ' (parcial)' : '') + '</small><strong class="big ' + tone(left) + '">' + m(left) + '</strong>' +
-      '<div class="hero-grid"><div><small>Entradas</small><b>' + m(income) + '</b><span>' + (income ? 'lançadas no mês' : 'nenhuma lançada') + '</span></div><div><small>Comprometido</small><b>' + m(plan.total) + '</b><span>' + paid.length + ' de ' + list.length + ' pagas</span></div></div>' + composition(plan) + '</section>';
+      '<div class="hero-grid"><div><small>Entradas</small><b>' + m(income) + '</b><span>' + (income ? 'lançadas no mês' : 'nenhuma lançada') + '</span></div><div><small>Comprometido</small><b>' + m(plan.total) + '</b><span>' + paid.length + ' de ' + list.length + ' pagas</span></div></div></section>';
     if (plan.unknown) html += '<div class="note warn">' + icon('alert') + '<p>' + plan.unknown + (plan.unknown === 1 ? ' valor ainda não foi informado' : ' valores ainda não foram informados') + '. A sobra pode ser menor.</p></div>';
     if (!income) html += '<div class="note">' + icon('swap') + '<p>Sem entradas lançadas em ' + monthName(month) + '. ' + '<button class="inline" data-a="addReceipt" data-date="' + month + '-05">Lançar salário previsto</button></p></div>';
-    html += '<section class="card"><div class="card-h"><h2>Teto e meta</h2><button class="link-btn" data-a="editPlan">Editar</button></div><div class="trio two">' +
-      '<div><small>Teto de gastos</small><b>' + (set.expenseCap === null ? '—' : m(set.expenseCap)) + '</b>' + (set.expenseCap === null ? '' : '<span class="' + tone(set.expenseCap - plan.total) + '">' + (set.expenseCap >= plan.total ? m(set.expenseCap - plan.total) + ' de folga' : m(plan.total - set.expenseCap) + ' acima') + '</span>') + '</div>' +
-      '<div><small>Meta de guardar</small><b>' + (set.savingsGoal === null ? '—' : m(set.savingsGoal)) + '</b>' + (set.savingsGoal === null ? '' : '<span class="' + tone(left - set.savingsGoal) + '">' + (left >= set.savingsGoal ? 'cabe na sobra' : 'faltam ' + m(set.savingsGoal - left)) + '</span>') + '</div></div></section>';
     html += '<section class="card"><div class="card-h"><h2>Contas de ' + monthName(month) + '</h2><span class="muted">' + m(sum(list.filter(i => !i.paid), i => i.amount || 0)) + ' em aberto</span></div>' +
       (list.length ? '<div class="list">' + list.map(i => billRow(i, month)).join('') + '</div>' : App.empty('Nenhuma conta neste mês.')) + '</section>';
     const proj = H.projection(f, H.currentMonth(), 14), max = Math.max(1, ...proj.map(p => p.total));
-    html += '<section class="card"><div class="card-h"><h2>Próximos meses</h2><span class="muted">já comprometido</span></div><div class="list">' +
-      proj.map(p => '<button class="row proj' + (p.month === month ? ' on' : '') + '" data-a="monthSet" data-month="' + p.month + '"><span class="proj-m">' + H.monthShort(p.month) + '</span><span class="row-main">' + bar(p.total / max * 100, 'thin') + '</span><span class="row-amt">' + m(p.total) + (p.income ? '<small class="' + tone(p.left) + '">sobra ' + m(p.left) + '</small>' : '') + '</span></button>').join('') + '</div></section>';
+    const sm = (title, sub) => '<span class="row-main"><b>' + title + '</b><small>' + sub + '</small></span>';
+    html += '<h2 class="sec">Detalhes</h2><section class="card folds">' +
+      App.fold('mes-comp', sm('Para onde vai', 'Contas fixas, cartões e parcelas'), composition(plan)) +
+      App.fold('mes-plan', sm('Teto e meta', set.expenseCap === null && set.savingsGoal === null ? 'Não definidos' : 'Teto ' + (set.expenseCap === null ? '—' : m(set.expenseCap)) + ' · guardar ' + (set.savingsGoal === null ? '—' : m(set.savingsGoal))),
+        '<div class="trio two"><div><small>Teto de gastos</small><b>' + (set.expenseCap === null ? '—' : m(set.expenseCap)) + '</b>' + (set.expenseCap === null ? '' : '<span class="' + tone(set.expenseCap - plan.total) + '">' + (set.expenseCap >= plan.total ? m(set.expenseCap - plan.total) + ' de folga' : m(plan.total - set.expenseCap) + ' acima') + '</span>') + '</div>' +
+        '<div><small>Meta de guardar</small><b>' + (set.savingsGoal === null ? '—' : m(set.savingsGoal)) + '</b>' + (set.savingsGoal === null ? '' : '<span class="' + tone(left - set.savingsGoal) + '">' + (left >= set.savingsGoal ? 'cabe na sobra' : 'faltam ' + m(set.savingsGoal - left)) + '</span>') + '</div></div>' +
+        '<button class="btn small" data-a="editPlan">' + icon('edit') + 'Editar teto e meta</button>') +
+      App.fold('mes-proj', sm('Próximos meses', 'O que já está comprometido até ' + H.monthShort(proj[proj.length - 1].month)), '<div class="list">' +
+        proj.map(p => '<button class="row proj' + (p.month === month ? ' on' : '') + '" data-a="monthSet" data-month="' + p.month + '"><span class="proj-m">' + H.monthShort(p.month) + '</span><span class="row-main">' + bar(p.total / max * 100, 'thin') + '</span><span class="row-amt">' + m(p.total) + (p.income ? '<small class="' + tone(p.left) + '">sobra ' + m(p.left) + '</small>' : '') + '</span></button>').join('') + '</div>') + '</section>';
     return html;
   };
   A.editPlan = () => {
@@ -111,18 +110,20 @@
   /* ---------- Cartões ---------- */
   V.cartoes = () => {
     const f = F(), month = App.month, cards = f.budgets.filter(b => b.type === 'card' && b.active);
-    let html = head('Cartões', 'Faturas, limites e assinaturas', addBtn('editCard', 'Cartão'), '#/mais') + monthNav();
+    let html = head('Cartões', '', addBtn('editCard', 'Cartão'), '#/mais') + monthNav();
     if (!cards.length) return html + App.empty('Nenhum cartão cadastrado.');
     const total = sum(cards, b => H.cardBill(f, b, month).amount);
     html += '<section class="hero slim"><small>Faturas de ' + monthName(month) + '</small><strong class="big">' + m(total) + '</strong></section><div class="cols">';
     for (const b of cards) {
       const bill = H.cardBill(f, b, month), used = H.cardUsed(f, b), inst = H.cardInstallments(f, b, month), rec = (b.recurringCharges || []), id = ' data-id="' + esc(b.id) + '"';
-      html += '<section class="card"><div class="card-h"><h2>' + esc(H.cardName(b)) + '</h2><button class="link-btn" data-a="editCard"' + id + '>Editar</button></div>' +
-        '<button class="bill-box" data-a="cardBill"' + id + ' data-month="' + month + '"><span><small>Fatura de ' + monthName(month) + (b.dueDay ? ' · vence dia ' + b.dueDay : '') + '</small><b>' + m(bill.amount) + '</b></span><span class="pill">' + (bill.informed ? 'Informada' : 'Estimada') + '</span></button>';
-      if (b.creditLimit) html += '<div class="limit">' + bar(used / b.creditLimit * 100, used / b.creditLimit > 0.85 ? 'hot' : '') + '<small class="muted"><span>Usado ' + m(used) + '</span><span>Livre ' + m(Math.max(0, b.creditLimit - used)) + ' de ' + m(b.creditLimit) + '</span></small></div>';
-      if (inst.length) html += '<h3>Parcelas neste mês</h3><div class="list">' + inst.map(e => '<button class="row" data-a="debt" data-id="' + esc(e.p.id) + '"><span class="row-main"><b>' + esc(e.p.name) + '</b><small>Parcela ' + (e.i + 1) + ' de ' + e.p.total + '</small></span><span class="row-amt">' + m(e.amount) + '</span></button>').join('') + '</div>';
-      html += '<h3>Assinaturas</h3><div class="list">' + rec.map(r => '<button class="row' + (r.active ? '' : ' is-off') + '" data-a="editRecurring"' + id + ' data-rid="' + esc(r.id) + '"><span class="row-main"><b>' + esc(r.name) + '</b><small>' + (r.active ? (r.chargeDay ? 'Todo dia ' + r.chargeDay : 'Mensal') : 'Pausada') + '</small></span><span class="row-amt">' + m(r.amount) + '</span></button>').join('') +
-        '<button class="row add" data-a="editRecurring"' + id + '>' + icon('plus') + 'Adicionar assinatura</button></div></section>';
+      const pct = b.creditLimit ? used / b.creditLimit : 0, n = inst.length + rec.filter(r => r.active).length;
+      html += '<section class="card folds">' + App.fold('card-' + b.id,
+        '<span class="row-main"><b>' + esc(H.cardName(b)) + '</b><small>' + (b.dueDay ? 'Vence dia ' + b.dueDay + ' · ' : '') + (bill.informed ? 'fatura informada' : 'fatura estimada') + '</small>' + (b.creditLimit ? bar(pct * 100, 'thin' + (pct > 0.85 ? ' hot' : '')) : '') + '</span><span class="row-amt">' + m(bill.amount) + '<small>' + n + (n === 1 ? ' item' : ' itens') + '</small></span>',
+        '<div class="btn-row"><button class="btn small" data-a="cardBill"' + id + ' data-month="' + month + '">Informar fatura</button><button class="btn small ghost" data-a="editCard"' + id + '>Editar cartão</button></div>' +
+        (b.creditLimit ? '<small class="muted">Limite: usado ' + m(used) + ' · livre ' + m(Math.max(0, b.creditLimit - used)) + ' de ' + m(b.creditLimit) + '</small>' : '') +
+        (inst.length ? '<h3>Parcelas neste mês</h3><div class="list">' + inst.map(e => '<button class="row" data-a="debt" data-id="' + esc(e.p.id) + '"><span class="row-main"><b>' + esc(e.p.name) + '</b><small>Parcela ' + (e.i + 1) + ' de ' + e.p.total + '</small></span><span class="row-amt">' + m(e.amount) + '</span></button>').join('') + '</div>' : '') +
+        '<h3>Assinaturas</h3><div class="list">' + rec.map(r => '<button class="row' + (r.active ? '' : ' is-off') + '" data-a="editRecurring"' + id + ' data-rid="' + esc(r.id) + '"><span class="row-main"><b>' + esc(r.name) + '</b><small>' + (r.active ? (r.chargeDay ? 'Todo dia ' + r.chargeDay : 'Mensal') : 'Pausada') + '</small></span><span class="row-amt">' + m(r.amount) + '</span></button>').join('') +
+        '<button class="row add" data-a="editRecurring"' + id + '>' + icon('plus') + 'Adicionar assinatura</button></div>') + '</section>';
     }
     return html + '</div>';
   };
@@ -171,13 +172,13 @@
     const f = F(), debt = H.debtSummary(f), free = H.debtFreeMonth(f);
     const nextDate = p => (H.nextEntry(p) || { date: '9999' }).date;
     const open = f.purchases.filter(p => !H.isSettled(p)).sort((a, b) => nextDate(a).localeCompare(nextDate(b))), done = f.purchases.filter(H.isSettled);
-    let html = head('Dívidas', 'Parcelamentos e empréstimos', addBtn('editDebt', 'Nova'));
+    let html = head('Dívidas', '', addBtn('editDebt', 'Nova'));
     html += '<section class="hero"><small>Falta quitar</small><strong class="big">' + m(debt.remaining) + '</strong>' + bar(debt.pct) +
       '<div class="hero-grid"><div><small>Parcelas deste mês</small><b>' + m(debt.monthly) + '</b><span>' + (debt.monthlyPending ? m(debt.monthlyPending) + ' em aberto' : 'tudo pago') + '</span></div><div><small>Livre de dívidas em</small><b>' + (free ? cap(H.monthShort(free)) : 'Já está') + '</b><span>' + debt.pct + '% já pago</span></div></div></section>';
     if (free) html += '<button class="note" data-a="simulate">' + icon('target') + '<p><b>E se eu pagar um extra por mês?</b> Simule em que mês você fica livre das dívidas.</p></button>';
     if (debt.overdue) html += '<div class="note warn">' + icon('alert') + '<p><b>' + m(debt.overdue) + ' em parcelas vencidas sem baixa.</b> Abra a dívida e marque as que já foram pagas.</p></div>';
     html += '<section class="card"><div class="card-h"><h2>Em andamento</h2><span class="muted">' + open.length + '</span></div>' + (open.length ? '<div class="list">' + open.map(debtRow).join('') + '</div>' : App.empty('Nenhuma dívida em aberto.')) + '</section>';
-    if (done.length) html += '<section class="card"><div class="card-h"><h2>Quitados</h2><span class="muted">' + done.length + '</span></div><div class="list">' + done.map(debtRow).join('') + '</div></section>';
+    if (done.length) html += '<section class="card folds">' + App.fold('div-done', '<span class="row-main"><b>Quitados</b><small>' + done.length + (done.length === 1 ? ' dívida encerrada' : ' dívidas encerradas') + '</small></span>', '<div class="list">' + done.map(debtRow).join('') + '</div>') + '</section>';
     return html;
   };
   A.debt = ({ id }) => {
@@ -223,7 +224,7 @@
   V.casa = () => {
     const f = F(), month = App.month, week = H.weekStart(H.today());
     const fixed = f.budgets.filter(b => b.type === 'fixed' && b.active), env = f.budgets.filter(b => b.type === 'envelope' && b.active), off = f.budgets.filter(b => b.type !== 'card' && !b.active);
-    let html = head('Casa', 'Contas fixas e caixinhas do dia a dia', '', '#/mais') + monthNav();
+    let html = head('Casa', '', '', '#/mais') + monthNav();
     html += '<section class="card"><div class="card-h"><h2>Contas fixas</h2>' + addBtn('editBudget', 'Conta', ' data-type="fixed"') + '</div>' + (fixed.length ? '<div class="list">' + fixed.map(b => {
       const v = H.limit(b, 'm:' + month), paid = H.spent(f, b, 'm:' + month);
       return '<button class="row" data-a="editBudget" data-id="' + esc(b.id) + '"><span class="row-main"><b>' + esc(b.name) + '</b><small>' + (b.dueDay ? 'Vence dia ' + b.dueDay : 'Sem dia de vencimento') + (paid ? ' · paga em ' + monthName(month) : '') + '</small></span><span class="row-amt">' + (v === null ? '<em>a informar</em>' : m(v)) + '</span></button>';
@@ -232,9 +233,11 @@
       const period = H.periodOf(b, month, week), lim = H.limit(b, period), spent = H.spent(f, b, period), id = ' data-id="' + esc(b.id) + '"';
       return '<div class="row env"><button class="row-main" data-a="editBudget"' + id + '><b>' + esc(b.name) + '</b><small>' + (b.frequency === 'weekly' ? 'Semana de ' + H.shortDate(week) : cap(monthName(month))) + ' · gasto ' + m(spent) + (lim === null ? ' · sem limite definido' : ' de ' + m(lim)) + '</small>' + (lim ? bar(spent / lim * 100, 'thin' + (spent > lim ? ' hot' : '')) : '') + '</button><button class="btn small" data-a="spend"' + id + '>' + icon('plus') + 'Gasto</button></div>';
     }).join('') + '</div>' : App.empty('Nenhuma caixinha.')) + '</section>';
-    const recent = f.expenses.filter(e => { const b = f.budgets.find(b => b.id === e.budgetId); return b && b.type === 'envelope'; }).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 15);
-    if (recent.length) html += '<section class="card"><div class="card-h"><h2>Últimos gastos</h2></div><div class="list">' + recent.map(e => '<button class="row" data-a="delRow" data-source="expense" data-id="' + esc(e.id) + '"><span class="row-main"><b>' + esc(e.description || f.budgets.find(b => b.id === e.budgetId).name) + '</b><small>' + H.shortDate(e.date) + ' · ' + esc(f.budgets.find(b => b.id === e.budgetId).name) + (e.method === 'credit' ? ' · crédito' : '') + '</small></span><span class="row-amt">' + m(e.amount) + '</span></button>').join('') + '</div></section>';
-    if (off.length) html += '<section class="card"><div class="card-h"><h2>Desativadas</h2></div><div class="list">' + off.map(b => '<button class="row is-off" data-a="editBudget" data-id="' + esc(b.id) + '"><span class="row-main"><b>' + esc(b.name) + '</b></span></button>').join('') + '</div></section>';
+    const recent = f.expenses.filter(e => { const b = f.budgets.find(b => b.id === e.budgetId); return b && b.type === 'envelope'; }).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+    const spentRow = e => { const b = f.budgets.find(b => b.id === e.budgetId); return '<button class="row" data-a="delRow" data-source="expense" data-id="' + esc(e.id) + '"><span class="row-main"><b>' + esc(e.description || b.name) + '</b><small>' + H.shortDate(e.date) + ' · ' + esc(b.name) + (e.method === 'credit' ? ' · crédito' : '') + '</small></span><span class="row-amt">' + m(e.amount) + '</span></button>'; };
+    if (recent.length) html += '<section class="card"><div class="card-h"><h2>Últimos gastos</h2></div><div class="list">' + recent.slice(0, 5).map(spentRow).join('') + '</div>' +
+      (recent.length > 5 ? App.fold('casa-mais', '<span class="row-main">Ver mais ' + (recent.length - 5) + '</span>', '<div class="list">' + recent.slice(5).map(spentRow).join('') + '</div>', 'plain') : '') + '</section>';
+    if (off.length) html += '<section class="card folds">' + App.fold('casa-off', '<span class="row-main"><b>Desativadas</b><small>' + off.length + (off.length === 1 ? ' conta ou caixinha' : ' contas ou caixinhas') + '</small></span>', '<div class="list">' + off.map(b => '<button class="row is-off" data-a="editBudget" data-id="' + esc(b.id) + '"><span class="row-main"><b>' + esc(b.name) + '</b></span></button>').join('') + '</div>') + '</section>';
     return html;
   };
   A.editBudget = ({ id, type }) => {
@@ -273,13 +276,15 @@
   /* ---------- Entradas e saldo ---------- */
   V.caixa = () => {
     const f = F(), month = H.currentMonth(), cash = H.cashSummary(f, month), rows = H.cashRows(f), today = H.today();
-    let html = head('Entradas e saídas', 'Opcional: use só se quiser acompanhar o saldo em conta', '', '#/mais');
+    let html = head('Entradas e saídas', 'Opcional', '', '#/mais');
     html += '<section class="hero"><small>Saldo em conta</small><strong class="big ' + tone(cash.balance) + '">' + m(cash.balance) + '</strong>' +
       '<div class="hero-grid"><div><small>Entrou em ' + monthName(month) + '</small><b>' + m(cash.income) + '</b><span>' + (cash.future ? m(cash.future) + ' ainda a receber' : 'até hoje') + '</span></div><div><small>Saiu em ' + monthName(month) + '</small><b>' + m(cash.out) + '</b><span>pagamentos e saídas</span></div></div>' +
       '<div class="btn-row"><button class="btn primary" data-a="addReceipt">' + icon('plus') + 'Entrada</button><button class="btn" data-a="addOutflow">' + icon('plus') + 'Saída</button><button class="btn ghost" data-a="setBalance">Ajustar saldo</button></div></section>';
     if (f.cashOpening) html += '<p class="muted pad">Saldo conferido em ' + H.dateLabel(f.cashOpening.date) + ': ' + m(f.cashOpening.amount) + '. Dali em diante o app soma as entradas e desconta as saídas.</p>';
-    html += '<section class="card"><div class="card-h"><h2>Movimentações</h2><span class="muted">toque para excluir</span></div>' + (rows.length ? '<div class="list">' + rows.slice(0, 60).map(r =>
-      '<button class="row" data-a="delRow" data-source="' + r.source + '" data-id="' + esc(r.id) + '"><span class="row-ic ' + (r.direction === 'in' ? 'ok' : r.direction === 'credit' ? '' : 'out') + '">' + icon(r.direction === 'credit' ? 'card' : 'swap') + '</span><span class="row-main"><b>' + esc(r.description || 'Sem descrição') + '</b><small>' + H.shortDate(r.date) + ' · ' + esc(r.who) + (r.date > today ? ' · previsto' : '') + (r.direction === 'credit' ? ' · no crédito' : '') + '</small></span><span class="row-amt ' + (r.direction === 'in' ? 'pos' : '') + '">' + (r.direction === 'in' ? '+ ' : r.direction === 'out' ? '− ' : '') + m(r.amount) + '</span></button>').join('') + '</div>' : App.empty('Nenhuma movimentação ainda.')) + '</section>';
+    const moveRow = r => '<button class="row" data-a="delRow" data-source="' + r.source + '" data-id="' + esc(r.id) + '"><span class="row-ic ' + (r.direction === 'in' ? 'ok' : r.direction === 'credit' ? '' : 'out') + '">' + icon(r.direction === 'credit' ? 'card' : 'swap') + '</span><span class="row-main"><b>' + esc(r.description || 'Sem descrição') + '</b><small>' + H.shortDate(r.date) + ' · ' + esc(r.who) + (r.date > today ? ' · previsto' : '') + (r.direction === 'credit' ? ' · no crédito' : '') + '</small></span><span class="row-amt ' + (r.direction === 'in' ? 'pos' : '') + '">' + (r.direction === 'in' ? '+ ' : r.direction === 'out' ? '− ' : '') + m(r.amount) + '</span></button>';
+    const shown = rows.slice(0, 60);
+    html += '<section class="card"><div class="card-h"><h2>Movimentações</h2><span class="muted">toque para excluir</span></div>' + (rows.length ? '<div class="list">' + shown.slice(0, 10).map(moveRow).join('') + '</div>' +
+      (shown.length > 10 ? App.fold('caixa-mais', '<span class="row-main">Ver mais ' + (shown.length - 10) + '</span>', '<div class="list">' + shown.slice(10).map(moveRow).join('') + '</div>', 'plain') : '') : App.empty('Nenhuma movimentação ainda.')) + '</section>';
     return html;
   };
   A.addReceipt = ({ date }) => {

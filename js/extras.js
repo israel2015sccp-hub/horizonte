@@ -21,14 +21,14 @@
   /* ---------- avisos do Início ---------- */
   App.homeNotes = (f, list) => {
     const today = H.today(), limit = H.addDays(today, 3), month = H.currentMonth();
-    let html = '';
+    const out = [];
     const soon = list.filter(i => !i.paid && i.date && i.date >= today && i.date <= limit);
-    if (soon.length) html += '<a class="note" href="#/mes">' + icon('clock') + '<p><b>' + (soon.length === 1 ? esc(soon[0].title) + ' vence ' + H.relative(soon[0].date) : soon.length + ' contas vencem nos próximos 3 dias') + '.</b> ' +
-      m(H.sum(soon, i => i.amount || 0)) + ' no total.</p></a>';
-    for (const a of H.cardAlerts(f, month)) html += '<a class="note warn" href="#/cartoes">' + icon('alert') + '<p><b>Fatura ' + esc(a.name) + ' veio ' + a.pct + '% acima do normal.</b> ' + m(a.amount) + ' agora, contra ' + m(a.avg) + ' de média.</p></a>';
+    if (soon.length) out.push('<a class="note" href="#/mes">' + icon('clock') + '<p><b>' + (soon.length === 1 ? esc(soon[0].title) + ' vence ' + H.relative(soon[0].date) : soon.length + ' contas vencem nos próximos 3 dias') + '.</b> ' +
+      m(H.sum(soon, i => i.amount || 0)) + ' no total.</p></a>');
+    for (const a of H.cardAlerts(f, month)) out.push('<a class="note warn" href="#/cartoes">' + icon('alert') + '<p><b>Fatura ' + esc(a.name) + ' veio ' + a.pct + '% acima do normal.</b> ' + m(a.amount) + ' agora, contra ' + m(a.avg) + ' de média.</p></a>');
     const last = get('backupAt'), age = last && H.validDate(last) ? -H.diffDays(last) : null;
-    if (hasData(f) && (age === null || age > 30)) html += '<button class="note" data-a="exportBackup">' + icon('download') + '<p><b>' + (age === null ? 'Você ainda não salvou um backup neste aparelho.' : 'Faz ' + age + ' dias que você não salva um backup.') + '</b> Toque aqui para salvar uma cópia agora.</p></button>';
-    return html;
+    if (hasData(f) && (age === null || age > 30)) out.push('<button class="note" data-a="exportBackup">' + icon('download') + '<p><b>' + (age === null ? 'Você ainda não salvou um backup neste aparelho.' : 'Faz ' + age + ' dias que você não salva um backup.') + '</b> Toque aqui para salvar uma cópia agora.</p></button>');
+    return out;
   };
 
   /* ---------- busca ---------- */
@@ -115,14 +115,10 @@
   A.startBlank = () => { startBlank(); setTimeout(A.tour, 300); };
 
   /* ---------- seção em Ajustes ---------- */
-  App.settingsExtra = () => {
-    const last = get('backupAt');
-    return '<section class="card"><h2>Segurança</h2><div class="list">' +
-      '<button class="row link" data-a="setPin"><span class="row-ic">' + icon('lock') + '</span><span class="row-main"><b>PIN para abrir</b><small>' + (get('pin') ? 'Ligado neste aparelho' : 'Desligado') + '</small></span>' + icon('chevR', 'dim') + '</button>' +
-      '<button class="row link" data-a="toggleHide"><span class="row-ic">' + icon('eye') + '</span><span class="row-main"><b>Ocultar valores</b><small>Para abrir o app perto de outras pessoas</small></span><span class="pill">Trocar</span></button>' +
-      '<button class="row link" data-a="tour"><span class="row-ic">' + icon('book') + '</span><span class="row-main"><b>Como usar</b><small>Resumo em 5 passos</small></span>' + icon('chevR', 'dim') + '</button>' +
-      '</div><small class="muted">' + (last ? 'Último backup neste aparelho: ' + H.dateLabel(last) + '.' : 'Nenhum backup salvo neste aparelho ainda.') + ' O PIN é uma trava simples, não substitui o bloqueio do celular.</small></section>';
-  };
+  App.settingsExtra = () => '<section class="card"><h2>Segurança</h2><div class="list">' +
+    '<button class="row link" data-a="setPin"><span class="row-ic">' + icon('lock') + '</span><span class="row-main"><b>PIN para abrir</b><small>' + (get('pin') ? 'Ligado neste aparelho' : 'Desligado') + '</small></span>' + icon('chevR', 'dim') + '</button>' +
+    '<button class="row link" data-a="toggleHide"><span class="row-ic">' + icon('eye') + '</span><span class="row-main"><b>Ocultar valores</b><small>Para abrir o app perto de outras pessoas</small></span><span class="pill">Trocar</span></button>' +
+    '</div></section>';
 
   applyHide();
   lock();

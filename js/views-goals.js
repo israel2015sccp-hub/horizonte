@@ -18,7 +18,7 @@
     const hz = HZ(), f = F(), today = H.today();
     const goals = [...hz.goals].sort((a, b) => (a.status === 'done') - (b.status === 'done') || (b.id === hz.focus) - (a.id === hz.focus));
     const att = H.attentions(hz), agenda = H.agenda(H.state, today, 14);
-    let html = head('Objetivos', 'Plano de ' + hz.year, '<button class="btn small" data-a="newGoal">' + icon('plus') + 'Objetivo</button>');
+    let html = head('Objetivos', 'Plano de ' + hz.year, '<button class="btn small" data-a="newGoal">' + icon('plus') + 'Objetivo</button>', '#/mais');
     html += '<button class="card quote" data-a="editReflection"><small>Nosso norte para ' + hz.year + '</small><p>' + (hz.reflection ? esc(hz.reflection) : 'Toque para escrever, em uma frase, onde vocês querem chegar.') + '</p></button>';
     if (att.length) html += '<section class="card"><div class="card-h"><h2>Pede atenção</h2><span class="muted">' + att.length + '</span></div><div class="list">' + att.map(a => '<a class="row link" href="' + link(a.g) + '"><span class="row-ic ' + a.severity + '">' + icon(a.severity === 'danger' ? 'alert' : 'clock') + '</span><span class="row-main"><b>' + esc(a.title) + '</b><small>' + esc(a.description) + ' · ' + esc(a.g.title) + '</small></span><span class="row-amt"><small>' + (a.date ? H.relative(a.date) : 'sem prazo') + '</small></span></a>').join('') + '</div></section>';
     html += goals.length ? '<div class="goals">' + goals.map(g => goalCard(g, f, g.id === hz.focus)).join('') + '</div>' : App.empty('Nenhum objetivo ainda.');
