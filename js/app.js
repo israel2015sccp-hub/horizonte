@@ -3,9 +3,9 @@
   'use strict';
   const { esc, icon } = UI;
   const App = window.App = { views: {}, actions: {}, month: null, route: '', param: '' };
-  const NAV = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['cartoes', 'Cartões', 'card'], ['dividas', 'Dívidas', 'wallet'], ['casa', 'Casa', 'basket'], ['caixa', 'Entradas e saldo', 'swap'], ['objetivos', 'Objetivos', 'target'], ['importar', 'Importar extrato', 'upload'], ['ajustes', 'Ajustes', 'settings']];
+  const NAV = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['cartoes', 'Cartões', 'card'], ['dividas', 'Dívidas', 'wallet'], ['casa', 'Casa', 'basket'], ['guardado', 'Guardado', 'piggy'], ['caixa', 'Entradas e saídas', 'swap'], ['objetivos', 'Objetivos', 'target'], ['importar', 'Importar extrato', 'upload'], ['ajustes', 'Ajustes', 'settings']];
   const TABS = [['inicio', 'Início', 'home'], ['mes', 'Mês', 'calendar'], ['dividas', 'Dívidas', 'wallet'], ['objetivos', 'Objetivos', 'target'], ['mais', 'Mais', 'grid']];
-  const TAB_OF = { importar: 'mais', cartoes: 'mais', casa: 'mais', caixa: 'mais', ajustes: 'mais', objetivo: 'objetivos' };
+  const TAB_OF = { guardado: 'mais', importar: 'mais', cartoes: 'mais', casa: 'mais', caixa: 'mais', ajustes: 'mais', objetivo: 'objetivos' };
   const V = App.views, A = App.actions;
 
   /* aplica uma mudança, salva e avisa (com Desfazer) */
@@ -45,7 +45,7 @@
   A.startBlank = () => { H.state = H.blankState(); H.persist(); App.go('#/inicio'); };
 
   /* ---------- menu "Mais" (celular) ---------- */
-  V.mais = () => App.head('Mais') + '<div class="list card">' + NAV.filter(n => ['cartoes', 'casa', 'caixa', 'importar', 'ajustes'].includes(n[0]))
+  V.mais = () => App.head('Mais') + '<div class="list card">' + NAV.filter(n => ['guardado', 'cartoes', 'casa', 'caixa', 'importar', 'ajustes'].includes(n[0]))
     .map(([r, label, ic]) => '<a class="row link" href="#/' + r + '"><span class="row-ic">' + icon(ic) + '</span><span class="row-main"><b>' + label + '</b></span>' + icon('chevR', 'dim') + '</a>').join('') + '</div>';
 
   /* ---------- ajustes e backup ---------- */

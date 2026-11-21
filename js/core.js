@@ -164,6 +164,7 @@
 
   /* ---------- entradas, saídas e saldo ---------- */
   H.personName = (f, owner) => owner === 2 ? 'Casal' : (f.names[owner] || 'Você');
+  H.savedSummary = f => { const s = f.savings || [], box = sum(s.filter(x => x.kind !== 'invest'), x => x.amount), invest = sum(s.filter(x => x.kind === 'invest'), x => x.amount); return { box, invest, total: box + invest, count: s.length }; };
   H.accountName = (f, id) => { const a = id && (f.accounts || []).find(a => a.id === id); return a ? [a.bank, a.owner, a.type === 'pj' ? 'CNPJ' : 'CPF'].filter(Boolean).join(' · ') : ''; };
   H.cashRows = f => [
     ...f.receipts.map(r => ({ ...r, kind: r.kind || 'salary', direction: 'in', source: 'receipt', who: H.accountName(f, r.account) || H.personName(f, r.owner) })),
@@ -322,6 +323,9 @@
     /* contas bancárias: banco, dono, CPF/CNPJ e as "chaves" que reconhecem o extrato (nunca o número da conta) */
     f.accounts = (Array.isArray(f.accounts) ? f.accounts : []).filter(a => a && str(a.id, 100) && a.id && str(a.bank, 60) && a.bank.trim() && str(a.owner, 60))
       .map(a => ({ id: a.id, bank: a.bank.trim(), owner: a.owner.trim(), type: a.type === 'pj' ? 'pj' : 'pf', keys: (Array.isArray(a.keys) ? a.keys : []).filter(k => str(k, 40) && k).slice(0, 20) }));
+    /* guardado: caixinhas e investimentos, com o valor informado por último */
+    f.savings = (Array.isArray(f.savings) ? f.savings : []).filter(x => x && str(x.id, 100) && x.id && str(x.name, 60) && x.name.trim() && Number.isSafeInteger(x.amount) && x.amount >= 0)
+      .map(x => ({ id: x.id, name: x.name.trim(), amount: x.amount, kind: x.kind === 'invest' ? 'invest' : 'box', place: str(x.place, 60) ? x.place : '', updated: H.validDate(x.updated) ? x.updated : H.today() }));
     const o = f.cashOpening;
     f.cashOpening = (o && H.validDate(o.date) && Number.isSafeInteger(o.amount)) ? { date: o.date, amount: o.amount } : null;
     f.monthlyPlans = f.monthlyPlans.filter(p => p && H.validMonth(p.month)).map(p => ({ month: p.month, expenseCap: cents(p.expenseCap) ? p.expenseCap : null, savingsGoal: cents(p.savingsGoal) ? p.savingsGoal : null }));

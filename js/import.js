@@ -145,7 +145,7 @@
   V.importar = () => {
     let html = head('Importar extrato', 'O arquivo é lido só neste aparelho', '', '#/mais');
     const f0 = F(), accounts = '<section class="card"><div class="card-h"><h2>Suas contas</h2><button class="btn small" data-a="newAccount">' + icon('plus') + 'Nova conta</button></div>' +
-      (f0.accounts.length ? '<div class="list">' + f0.accounts.map(a => '<button class="row" data-a="editAccount" data-id="' + esc(a.id) + '"><span class="row-main"><b>' + esc(a.bank) + '</b><small>' + esc(a.owner) + ' · ' + (a.type === 'pj' ? 'CNPJ' : 'CPF') + (a.keys.length ? ' · extrato reconhecido sozinho' : '') + '</small></span>' + icon('chevron') + '</button>').join('') + '</div>'
+      (f0.accounts.length ? '<div class="list">' + f0.accounts.map(a => '<button class="row" data-a="editAccount" data-id="' + esc(a.id) + '"><span class="row-main"><b>' + esc(a.bank) + '</b><small>' + esc(a.owner) + ' · ' + (a.type === 'pj' ? 'CNPJ' : 'CPF') + (a.keys.length ? ' · extrato reconhecido sozinho' : '') + '</small></span>' + icon('chevR', 'dim') + '</button>').join('') + '</div>'
         : '<p class="muted">Cadastre cada conta (banco, de quem é, CPF ou CNPJ). Ao importar, você diz de qual conta é o extrato; arquivos OFX passam a ser reconhecidos sozinhos.</p>') + '</section>';
     if (!S) return html +
       '<section class="card"><h2>Como funciona</h2><p class="muted">No app ou site do banco, exporte o extrato ou a fatura em <b>OFX</b> ou <b>CSV</b> e escolha o arquivo aqui. Você confere tudo antes de entrar. Nenhuma senha, nenhuma conexão com o banco.</p>' +
@@ -157,7 +157,7 @@
     if (S.kind === 'account') {
       const ins = H.sum(on.filter(r => r.amount > 0), r => r.amount), outs = H.sum(on.filter(r => r.amount < 0), r => -r.amount);
       html += '<section class="hero slim"><small>' + esc(S.name) + '</small><strong class="big">' + on.length + ' de ' + S.rows.length + ' lançamentos</strong><div class="hero-grid"><div><small>Entradas</small><b class="pos">' + m(ins) + '</b></div><div><small>Saídas</small><b>' + m(outs) + '</b></div></div></section>' +
-        '<section class="card"><div class="list"><button class="row" data-a="importAccount"><span class="row-main"><b>' + (S.account ? esc(H.accountName(F(), S.account)) : 'De qual conta é este extrato?') + '</b><small>' + (S.account ? (S.auto ? 'Conta reconhecida pelo arquivo' : 'Conta escolhida') + ' · toque para trocar' : 'Toque para escolher') + '</small></span>' + icon('chevron') + '</button></div></section>' +
+        '<section class="card"><div class="list"><button class="row" data-a="importAccount"><span class="row-main"><b>' + (S.account ? esc(H.accountName(F(), S.account)) : 'De qual conta é este extrato?') + '</b><small>' + (S.account ? (S.auto ? 'Conta reconhecida pelo arquivo' : 'Conta escolhida') + ' · toque para trocar' : 'Toque para escolher') + '</small></span>' + icon('chevR', 'dim') + '</button></div></section>' +
         '<div class="note warn">' + icon('alert') + '<p>Desmarquei o que parece repetido. Desmarque também pagamentos de contas e faturas que você já marcou como pagas no Mês, para não contar duas vezes. Saída com o valor exato de uma parcela em aberto marca essa parcela como paga.</p></div>';
     } else {
       const total = H.sum(on, r => r.amount);

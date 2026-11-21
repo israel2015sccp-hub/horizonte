@@ -53,10 +53,11 @@
     const late = open.filter(i => i.date && i.date < today).length;
     const focus = hz.goals.find(g => g.id === hz.focus && g.status !== 'done'), att = H.attentions(hz).slice(0, 3);
     let html = head('Início', cap(H.WEEKDAYS[H.parseDate(today).getDay()]) + ', ' + H.dateLabel(today));
-    html += '<section class="hero"><small>Saldo em conta</small>' +
-      (cash.hasBase ? '<strong class="big ' + tone(cash.balance) + '">' + m(cash.balance) + '</strong>' : '<button class="btn primary" data-a="setBalance">Informar meu saldo</button>') +
-      '<div class="hero-grid"><div><small>Falta pagar em ' + monthName(month) + '</small><b>' + m(openSum) + '</b><span>' + (open.length ? open.length + (open.length === 1 ? ' conta em aberto' : ' contas em aberto') : 'tudo pago') + '</span></div>' +
-      '<div><small>Depois das contas</small><b class="' + tone(after) + '">' + m(after) + '</b><span>' + (cash.future ? 'com ' + m(cash.future) + ' a receber' : 'saldo menos o que falta') + '</span></div></div></section>';
+    const saved = H.savedSummary(f), bills = list.filter(i => i.kind === 'card'), billsOpen = bills.filter(i => !i.paid);
+    html += '<section class="hero"><small>Guardado</small>' +
+      (saved.count ? '<a class="big-link" href="#/guardado"><strong class="big">' + m(saved.total) + '</strong></a>' : '<a class="btn primary" href="#/guardado">Informar o que tenho guardado</a>') +
+      '<div class="hero-grid"><div><small>Faturas de ' + monthName(month) + '</small><b>' + m(plan.cards) + '</b><span>' + (billsOpen.length ? billsOpen.length + (billsOpen.length === 1 ? ' em aberto' : ' em aberto') : 'tudo pago') + '</span></div>' +
+      '<div><small>Empréstimos e parcelas</small><b>' + m(debt.remaining) + '</b><span>' + (debt.monthly ? m(debt.monthly) + ' neste mês' : 'falta quitar') + '</span></div></div></section>';
     if (late) html += '<a class="note warn" href="#/mes">' + icon('alert') + '<p><b>' + late + (late === 1 ? ' conta vencida' : ' contas vencidas') + ' sem baixa.</b> Se já pagou, marque como paga.</p></a>';
     html += '<div class="cols"><section class="card"><div class="card-h"><h2>' + cap(monthName(month)) + '</h2><a href="#/mes">Ver mês</a></div>' +
       '<div class="trio"><div><small>Entradas</small><b>' + m(income) + '</b></div><div><small>Comprometido</small><b>' + m(plan.total) + '</b></div><div><small>Sobra prevista</small><b class="' + tone(income - plan.total) + '">' + m(income - plan.total) + '</b></div></div>' +
@@ -268,7 +269,7 @@
   /* ---------- Entradas e saldo ---------- */
   V.caixa = () => {
     const f = F(), month = H.currentMonth(), cash = H.cashSummary(f, month), rows = H.cashRows(f), today = H.today();
-    let html = head('Entradas e saldo', 'O que entrou, o que saiu e quanto tem em conta', '', '#/mais');
+    let html = head('Entradas e saídas', 'Opcional: use só se quiser acompanhar o saldo em conta', '', '#/mais');
     html += '<section class="hero"><small>Saldo em conta</small><strong class="big ' + tone(cash.balance) + '">' + m(cash.balance) + '</strong>' +
       '<div class="hero-grid"><div><small>Entrou em ' + monthName(month) + '</small><b>' + m(cash.income) + '</b><span>' + (cash.future ? m(cash.future) + ' ainda a receber' : 'até hoje') + '</span></div><div><small>Saiu em ' + monthName(month) + '</small><b>' + m(cash.out) + '</b><span>pagamentos e saídas</span></div></div>' +
       '<div class="btn-row"><button class="btn primary" data-a="addReceipt">' + icon('plus') + 'Entrada</button><button class="btn" data-a="addOutflow">' + icon('plus') + 'Saída</button><button class="btn ghost" data-a="setBalance">Ajustar saldo</button></div></section>';
